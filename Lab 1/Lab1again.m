@@ -1,6 +1,8 @@
 %%Setup
+clear all;
+
 global simlv, global simrv, global simpos, global simle, global simre, global isSim, global vmax, global robot, global tStart, global tMove, global data, global origEnc
-isSim = false;
+isSim = true;
 simlv = 0; %Left velocity
 simrv = 0; %Right velocity
 simle = 1234; %Encoder values (random to start)
@@ -12,7 +14,7 @@ vmax = 0.5;
 %2.54 cm = 1 in (exact conversion)
 
 if ~isSim
-    robot = raspbot()
+    robot = raspbot();
 end
 tStart = tic; %Timer that never stops
 tMove = tic; %Timer that's reset each call to the move function
@@ -23,9 +25,9 @@ startEnc = getEncoders;
 tMove = tic; %Timer that's reset each call to the move function
 
 hold all
-moveDist(0.04, 0.3048);
+moveDist(0.05, 0.3048);
 pause(1);
-moveDist(0.04, -0.3048);
+moveDist(0.05, -0.3048);
 hold off
 
 %Wrapper for reading encoders
@@ -92,10 +94,11 @@ function moveDist(v, d)
            %Plot things
            data = [data, [temp(1)-origEnc(1); temp(2)-origEnc(2); toc(tStart)]];
            %data is stored in meters; convert to cm when plotting
+           clf;
            plot(data(3, :), data(1, :)*100, data(3, :), data(2, :)*100)
-           xlabel = 'Time (s)';
-           ylabel = 'Encoder distance (cm)';
-           legend('leftEnc', 'rightEnc');
+           xlabel ('Time (s)')
+           ylabel ('Encoder distance (cm)')
+           legend('leftEnc', 'rightEnc')
         end
     else
         while(currenc > d)
@@ -110,10 +113,11 @@ function moveDist(v, d)
            %Plot things
            data = [data, [temp(1)-origEnc(1); temp(2)-origEnc(2); toc(tStart)]];
            %data is stored in meters; convert to cm when plotting
+           clf;
            plot(data(3, :), data(1, :)*100, data(3, :), data(2, :)*100)
-           xlabel = 'Time (s)';
-           ylabel = 'Encoder distance (cm)';
-           legend('leftEnc', 'rightEnc');
+           xlabel ('Time (s)')
+           ylabel ('Encoder distance (cm)')
+           legend('leftEnc', 'rightEnc')
         end
     end
     move(0, 0);
@@ -125,8 +129,9 @@ function moveDist(v, d)
    %Plot things
    data = [data, [temp(1)-origEnc(1); temp(2)-origEnc(2); toc(tStart)]];
    %data is stored in meters; convert to cm when plotting
+   clf;
    plot(data(3, :), data(1, :)*100, data(3, :), data(2, :)*100)
-   xlabel = 'Time (s)';
-   ylabel = 'Encoder distance (cm)';
-   legend('leftEnc', 'rightEnc');
+   xlabel ('Time (s)')
+   ylabel ('Encoder distance (cm)')
+   legend('leftEnc', 'rightEnc')
 end
