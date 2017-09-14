@@ -1,5 +1,5 @@
 global robot, global isSim, global vMax, global tMove, global wheelbase, global simle, global simre;
-isSim = true;
+isSim = false;
 if(~isSim)
     robot = raspbot();
     robot.startLaser();
@@ -22,11 +22,11 @@ while true
        move(0, 0)
    else
        smartMove(kpl*(temp(1)-0.5), kpa*(temp(2)-90));
+       plot(temp(1)*cosd(temp(2)), temp(1)*sind(temp(2)), 'x');
+       xlabel ('Sideways distance (m)');
+       ylabel ('Forward distance (m)');
+       axis([-2 2 0 2]);
    end
-   plot(temp(1)*cosd(temp(2)), temp(1)*sind(temp(2)), 'x');
-   xlabel ('Sideways distance (m)');
-   ylabel ('Forward distance (m)');
-   axis([-2 2 0 2]);
    pause(0.05);
 end
 
