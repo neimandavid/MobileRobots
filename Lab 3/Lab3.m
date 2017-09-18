@@ -31,18 +31,22 @@ kk = 15.1084;
 %Instead, I scaled tf and s by ks, which should be equivalent
 %Basically, anything using a value of t uses the value t/ks, t being real time
 %whereas before it would use t = T/ks, T being real time
-'a'
-while true
-    'a'
+
+c = 0;
+
+while true  
    newenc = getEncoders(); %Ideally would have a clever wait here
    %Compute dt and relevant speeds/distances
-   'a'
    dt = newenc(3)-oldenc(3);
+   if dt == 0
+       'No new encoder data'
+       c = c + 1
+       continue
+   end
    vl = (newenc(1)-oldenc(1))/dt;
    vr = (newenc(2)-oldenc(2))/dt;
    [Vmeas, wmeas] = IKcomp(vl, vr);
    %Update state estimate (using midpoint method; could use Runge-Kutta, etc.)
-   'a'
    th = th + wmeas*dt/2;
    x = x + Vmeas * cos(th)*dt;
    y = y + Vmeas * sin(th)*dt;
@@ -51,27 +55,22 @@ while true
    temp = [x; y; th; t];
    data = [data, temp];
    %Compute trajectory and move
-   'a'
    s = vcomm*t/ks;
    k = kk/ks*sin(kth*s);
    wcomm = k*vcomm;
    FKmove(vcomm, wcomm);
    %Plot stuff
-   'a'
    plot(data(1,:), data(2,:));
    %quiver(x, y, Vmeas*cos(th), Vmeas*sin(th));
    axis([-0.6 0.6 -0.6 0.6]);
    title('Robot Trajectory');
    xlabel('x (m)');
    ylabel('y (m)');
-   
    %Update encoder buffer
-   'a'
    oldenc = newenc;
    %Pause so Matlab doesn't hate me...
-   pause(0.05);
+   pause(0.2);
    %Check for exit
-   'a'
    if t >= tf
        move(0, 0); %Stop
        break
