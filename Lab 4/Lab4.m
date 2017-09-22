@@ -14,51 +14,51 @@ tMove = tic; %Start timer for simulated move function
 global kp, global ki, global kd, global kcoeff
 kp = 1;
 ki = 0;
-kd = 0.1;
-kcoeff = 1;
+kd = 0;
+kcoeff = 0;
 
 echo on
 
 global data, global vpid
 vpid = [-1, -1];
 
-PIDFFmove(1, 0.1, 1);
+PIDFFmove(.1, 0.01, 1);
 'Finished moving'
 
 
-function FFmove(d, v, tr)
-    global data
-    a = v/tr;
-    tf = d/v+tr;
-    temp = getEncoders();
-    tstart = temp(3);
-    data = [0; 0; tstart];
-    t = 0;
-    while t < tr
-        move(a*t, a*t);
-        temp = getEncoders();
-        data = [data, temp];
-        t = temp(3) - tstart;
-        pause(0.05);
-        plot(data(3, :), data(1, :));
-    end
-    while t < tf - tr
-        move(v, v);
-        temp = getEncoders();
-        data = [data, temp];
-        t = temp(3) - tstart;
-        pause(0.05);
-        plot(data(3, :), data(1, :));
-    end
-    while t < tf
-        move(a*(tf-t), a*(tf-t));
-        temp = getEncoders();
-        data = [data, temp];
-        t = temp(3) - tstart;
-        pause(0.05);
-        plot(data(3, :), data(1, :));
-    end
-end
+% function FFmove(d, v, tr)
+%     global data
+%     a = v/tr;
+%     tf = d/v+tr;
+%     temp = getEncoders();
+%     tstart = temp(3);
+%     data = [0; 0; tstart];
+%     t = 0;
+%     while t < tr
+%         move(a*t, a*t);
+%         temp = getEncoders();
+%         data = [data, temp];
+%         t = temp(3) - tstart;
+%         pause(0.05);
+%         plot(data(3, :), data(1, :));
+%     end
+%     while t < tf - tr
+%         move(v, v);
+%         temp = getEncoders();
+%         data = [data, temp];
+%         t = temp(3) - tstart;
+%         pause(0.05);
+%         plot(data(3, :), data(1, :));
+%     end
+%     while t < tf
+%         move(a*(tf-t), a*(tf-t));
+%         temp = getEncoders();
+%         data = [data, temp];
+%         t = temp(3) - tstart;
+%         pause(0.05);
+%         plot(data(3, :), data(1, :));
+%     end
+% end
 
 function PIDFFmove(d, v, tr)
     global data, global vpid, global kp, global ki, global kd, global kcoeff
@@ -66,7 +66,7 @@ function PIDFFmove(d, v, tr)
     tf = d/v+tr;
     temp = getEncoders();
     tstart = temp(3);
-    data = [0; 0; tstart];
+    data = [0; 0; 0];
     t = 0;
     dexp = [0, 0];
     olderr = [0, 0];
@@ -74,11 +74,12 @@ function PIDFFmove(d, v, tr)
     while t < tr
         dexp = [0.5*a*t^2, 0.5*a*t^2];
         temp = getEncoders();
-        data = [data, temp];
         oldt = t;
         t = temp(3) - tstart;
+        temp(3) = t;
+        data = [data, temp];
         dt = t - oldt;
-        err = [dexp - temp(1:2)];
+        err = [dexp - (temp(1:2))'];
         derr = (err - olderr)/dt;
         if abs(derr(1)) > 1
             'Warning: Error changed a lot in one time step'
@@ -97,7 +98,7 @@ function PIDFFmove(d, v, tr)
             'Warning: Possible integral windup'
             cumerr(2) = 10*sign(cumerr(2));
         end
-        vpid = kcoeff*(kp*err + kd*derr + ki*cumerr);
+        vpid = kcoeff*(kp*err + kd*derr + ki*cumerr)
         vff = [a*t, a*t];
         vcomm = vpid + vff;
         move(vcomm(1), vcomm(2));
@@ -107,11 +108,12 @@ function PIDFFmove(d, v, tr)
     while t < tf - tr
         dexp = [0.5*a*tr^2 + v*(t-tr), 0.5*a*tr^2 + v*(t-tr)];
         temp = getEncoders();
-        data = [data, temp];
         oldt = t;
         t = temp(3) - tstart;
+        temp(3) = t;
+        data = [data, temp];
         dt = t - oldt;
-        err = [dexp - temp(1:2)];
+        err = [dexp - (temp(1:2))'];
         derr = (err - olderr)/dt;
         if abs(derr(1)) > 1
             'Warning: Error changed a lot in one time step'
@@ -130,8 +132,8 @@ function PIDFFmove(d, v, tr)
             'Warning: Possible integral windup'
             cumerr(2) = 10*sign(cumerr(2));
         end
-        vpid = kcoeff*(kp*err + kd*derr + ki*cumerr);
-        vff = [v-1, v-1];
+        vpid = kcoeff*(kp*err + kd*derr + ki*cumerr)
+        vff = [v-.1, v-.1];
         vcomm = vpid + vff;
         move(vcomm(1), vcomm(2));
         pause(0.05);
@@ -140,11 +142,12 @@ function PIDFFmove(d, v, tr)
     while t < tf
         dexp = [0.5*a*tr^2 + v*(t-tr) - 0.5*a*(t+tr-tf)^2, 0.5*a*tr^2 + v*(t-tr) - 0.5*a*(t+tr-tf)^2];
         temp = getEncoders();
-        data = [data, temp];
         oldt = t;
         t = temp(3) - tstart;
+        temp(3) = t;
+        data = [data, temp];
         dt = t - oldt;
-        err = [dexp - temp(1:2)];
+        err = [dexp - (temp(1:2))'];
         derr = (err - olderr)/dt;
         if abs(derr(1)) > 1
             'Warning: Error changed a lot in one time step'
@@ -163,7 +166,7 @@ function PIDFFmove(d, v, tr)
             'Warning: Possible integral windup'
             cumerr(2) = 10*sign(cumerr(2));
         end
-        vpid = kcoeff*(kp*err + kd*derr + ki*cumerr);
+        vpid = kcoeff*(kp*err + kd*derr + ki*cumerr)
         vff = [a*(tf-t), a*(tf-t)];
         vcomm = vpid + vff;
         move(vcomm(1), vcomm(2));
