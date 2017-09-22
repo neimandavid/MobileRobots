@@ -17,11 +17,12 @@ x = 0; y = 0; th = 0; %State variables
 %I use dt for all the estimation so this should be okay
 data = [x; y; th; t];
 oldenc = getEncoders();
+move(0, 0);
 pause(0.1); %Allow another set of encoder readings to come in for ease of math
 
 %Figure 8 parameters:
 ks = 3;
-vcomm = 0.1;
+vcomm = 0.2;
 sf = 1;
 tf = sf/vcomm*ks;
 kth = 2*pi/sf;
@@ -58,6 +59,9 @@ while true
    s = vcomm*t/ks;
    k = kk/ks*sin(kth*s);
    wcomm = k*vcomm;
+   if t >= tf/2
+       wcomm = wcomm*0.97;
+   end
    FKmove(vcomm, wcomm);
    %Plot stuff
    plot(data(1,:), data(2,:));
@@ -69,13 +73,21 @@ while true
    %Update encoder buffer
    oldenc = newenc;
    %Pause so Matlab doesn't hate me...
-   pause(0.2);
+   pause(0.05);
    %Check for exit
    if t >= tf
        move(0, 0); %Stop
        break
    end
 end
+hold on
+x = [0 0]
+y = [-1 1]
+plot(x, y)
+x = [-1 1]
+y = [0 0]
+plot(x, y)
+hold off
 'Finished moving'
 
 function [V, w] = IKcomp(vl, vr)
