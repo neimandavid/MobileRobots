@@ -1,5 +1,5 @@
 global robot, global isSim, global vMax, global tMove, global tStart, global wheelbase, global simle, global simre, global simlv, global simrv;
-isSim = true;
+isSim = false;
 if(~isSim)
     robot = raspbot();
 end
@@ -12,56 +12,42 @@ tStart = tic; %Start timer for everything
 tMove = tic; %Start timer for simulated move function
 
 global kp, global ki, global kd, global kcoeff
-kp = 1;
-ki = 0;
+kp = 1.5;
+ki = 1;
 kd = 0.1;
 kcoeff = 1;
 
-global data, global vpid
+global data, global vpid, global dtarget
 data = [];
+dtarget = [];
 vpid = [-1, -1];
 
-PIDFFmove(1, 0.1, 1);
+PIDFFmove(1, 0.25, 0.33);
 move(0, 0);
+
+
+plot(data(3, :), data(1, :)-dtarget);
+xlabel('Time (s)')
+ylabel('Error (m)')
+title('Errors')
+legend('Error')
+
+figure;
+plot(data(3, :), data(1, :));
+hold on
+plot(data(3, :), dtarget);
+hold off
+xlabel('Time (s)')
+ylabel('Distance (m)')
+title('Calculated and Target Distances')
+legend('Actual distance', 'Target distance')
+
+move(0, 0);
+
 'Finished moving'
 
-
-% function FFmove(d, v, tr)
-%     global data
-%     a = v/tr;
-%     tf = d/v+tr;
-%     temp = getEncoders();
-%     tstart = temp(3);
-%     data = [0; 0; tstart];
-%     t = 0;
-%     while t < tr
-%         move(a*t, a*t);
-%         temp = getEncoders();
-%         data = [data, temp];
-%         t = temp(3) - tstart;
-%         pause(0.05);
-%         plot(data(3, :), data(1, :));
-%     end
-%     while t < tf - tr
-%         move(v, v);
-%         temp = getEncoders();
-%         data = [data, temp];
-%         t = temp(3) - tstart;
-%         pause(0.05);
-%         plot(data(3, :), data(1, :));
-%     end
-%     while t < tf
-%         move(a*(tf-t), a*(tf-t));
-%         temp = getEncoders();
-%         data = [data, temp];
-%         t = temp(3) - tstart;
-%         pause(0.05);
-%         plot(data(3, :), data(1, :));
-%     end
-% end
-
-function PIDFFmove(d, v, tr)  
-    global data, global vpid, global kp, global ki, global kd, global kcoeff
+function PIDFFmove(d, v, tr)
+    global data, global vpid, global kp, global ki, global kd, global kcoeff, global dtarget
     a = v/tr;
     tf = d/v+tr;
     temp = getEncoders();
@@ -69,17 +55,23 @@ function PIDFFmove(d, v, tr)
     data = [0; 0; 0];
     t = 0;
     dexp = [0, 0];
+    dtarget = [dtarget, dexp(1)];
     olderr = [0, 0];
     cumerr = [0, 0];
     derr = [0, 0];
     while t < tr
         dexp = [0.5*a*t^2, 0.5*a*t^2];
+        dtarget = [dtarget, dexp(1)];
         temp = getEncoders()-tstart;
         data = [data, temp];
         oldt = t;
         t = temp(3);
         dt = t - oldt;
         err = [dexp - (temp(1:2))'];
+        if dt < 0
+            t = oldt;
+            continue
+        end
         if dt > 0
             derr = (err - olderr)/dt;
         end
@@ -109,10 +101,17 @@ function PIDFFmove(d, v, tr)
     end
     while t < tf - tr
         dexp = [0.5*a*tr^2 + v*(t-tr), 0.5*a*tr^2 + v*(t-tr)];
+        dtarget = [dtarget, dexp(1)];
         temp = getEncoders()-tstart;
         data = [data, temp];
         oldt = t;
-        t = temp(3);
+        t = temp(3)-0.12;
+        dt = t - oldt;
+        err = [dexp - (temp(1:2))'];
+        if dt < 0
+            t = oldt;
+            continue
+        end
         if dt > 0
             derr = (err - olderr)/dt;
         end
@@ -143,11 +142,18 @@ function PIDFFmove(d, v, tr)
         plot(data(3, :), data(1, :));
     end
     while t < tf
-        dexp = [0.5*a*tr^2 + v*(t-tr) - 0.5*a*(t+(tr-tf))^2, 0.5*a*tr^2 + v*(t-tr) - 0.5*a*(t+tr-tf)^2]
+        dexp = [0.5*a*tr^2 + v*(t-tr) - 0.5*a*(t+(tr-tf))^2, 0.5*a*tr^2 + v*(t-tr) - 0.5*a*(t+tr-tf)^2];
+        dtarget = [dtarget, dexp(1)];
         temp = getEncoders()-tstart;
         data = [data, temp];
         oldt = t;
         t = temp(3);
+        dt = t - oldt;
+        err = [dexp - (temp(1:2))'];
+        if dt < 0
+            t = oldt;
+            continue
+        end
         if dt > 0
             derr = (err - olderr)/dt;
         end
@@ -179,13 +185,18 @@ function PIDFFmove(d, v, tr)
     end
     %Fourth loop added for that 1 second of sitting there adjusting
     while t < tf+1
-        dexp = [d, d]
+        dexp = [d, d];
+        dtarget = [dtarget, dexp(1)];
         temp = getEncoders()-tstart;
         data = [data, temp];
         oldt = t;
         t = temp(3);
         dt = t - oldt;
         err = [dexp - (temp(1:2))'];
+        if dt < 0
+            t = oldt;
+            continue
+        end
         if dt > 0
             derr = (err - olderr)/dt;
         end
@@ -272,7 +283,7 @@ function e = getEncoders()
     global simlv, global simrv, global simpos, global simle, global simre, global isSim, global vmax, global robot, global tStart, global tMove, global data, global origEnc
     if ~isSim
         tstamp = double(robot.encoders.LatestMessage.Header.Stamp.Sec) + double(robot.encoders.LatestMessage.Header.Stamp.Nsec)/1e9;
-        e = [robot.encoders.LatestMessage.Vector.X; robot.encoders.LatestMessage.Vector.Y; tstamp];
+        e = [0.98*robot.encoders.LatestMessage.Vector.X; 0.98*robot.encoders.LatestMessage.Vector.Y; tstamp];
     else
         e = [simle; simre; toc(tStart)];
     end
