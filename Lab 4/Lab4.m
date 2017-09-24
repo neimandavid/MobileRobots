@@ -1,5 +1,5 @@
 global robot, global isSim, global vMax, global tMove, global tStart, global wheelbase, global simle, global simre, global simlv, global simrv;
-isSim = false;
+isSim = true;
 if(~isSim)
     robot = raspbot();
 end
@@ -12,9 +12,9 @@ tStart = tic; %Start timer for everything
 tMove = tic; %Start timer for simulated move function
 
 global kp, global ki, global kd, global kcoeff
-kp = 0.01;
+kp = 1;
 ki = 0;
-kd = 0;
+kd = 0.1;
 kcoeff = 1;
 
 global data, global vpid
@@ -71,6 +71,7 @@ function PIDFFmove(d, v, tr)
     dexp = [0, 0];
     olderr = [0, 0];
     cumerr = [0, 0];
+    derr = [0, 0];
     while t < tr
         dexp = [0.5*a*t^2, 0.5*a*t^2];
         temp = getEncoders()-tstart;
@@ -79,7 +80,9 @@ function PIDFFmove(d, v, tr)
         t = temp(3);
         dt = t - oldt;
         err = [dexp - (temp(1:2))'];
-        derr = (err - olderr)/dt;
+        if dt > 0
+            derr = (err - olderr)/dt;
+        end
         if abs(derr(1)) > 1
             'Warning: Error changed a lot in one time step';
             derr(1) = 1*sign(derr(1));
@@ -110,7 +113,9 @@ function PIDFFmove(d, v, tr)
         data = [data, temp];
         oldt = t;
         t = temp(3);
-        dt = t - oldt;
+        if dt > 0
+            derr = (err - olderr)/dt;
+        end
         err = [dexp - (temp(1:2))'];
         derr = (err - olderr)/dt;
         if abs(derr(1)) > 1
@@ -138,12 +143,14 @@ function PIDFFmove(d, v, tr)
         plot(data(3, :), data(1, :));
     end
     while t < tf
-        dexp = [0.5*a*tr^2 + v*(tf-2*tr) - 0.5*a*(t+tr-tf)^2, 0.5*a*tr^2 + v*(tf-2*tr) - 0.5*a*(t+tr-tf)^2];
+        dexp = [0.5*a*tr^2 + v*(t-tr) - 0.5*a*(t+(tr-tf))^2, 0.5*a*tr^2 + v*(t-tr) - 0.5*a*(t+tr-tf)^2]
         temp = getEncoders()-tstart;
         data = [data, temp];
         oldt = t;
         t = temp(3);
-        dt = t - oldt;
+        if dt > 0
+            derr = (err - olderr)/dt;
+        end
         err = [dexp - (temp(1:2))'];
         derr = (err - olderr)/dt;
         if abs(derr(1)) > 1
@@ -172,14 +179,16 @@ function PIDFFmove(d, v, tr)
     end
     %Fourth loop added for that 1 second of sitting there adjusting
     while t < tf+1
-        dexp = [d, d];
+        dexp = [d, d]
         temp = getEncoders()-tstart;
         data = [data, temp];
         oldt = t;
         t = temp(3);
         dt = t - oldt;
         err = [dexp - (temp(1:2))'];
-        derr = (err - olderr)/dt;
+        if dt > 0
+            derr = (err - olderr)/dt;
+        end
         if abs(derr(1)) > 1
             'Warning: Error changed a lot in one time step'
             derr(1) = 1*sign(derr(1));

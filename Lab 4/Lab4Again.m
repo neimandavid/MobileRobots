@@ -18,21 +18,20 @@ global olderr, global cumerr
 olderr = 0;
 cumerr = 0;
 
-global data
-data = [0; 0; 0];
+global data, global origenc
+data = [];
+origenc = [];
 
 tStart = tic; %Start timer for everything
 tMove = tic; %Start timer for simulated move function
 
 %PIDRamp(0, 0.1, 1);
-%PIDRamp(0.1, 0, 9);
+PIDRamp(0.1, 0, 9);
 %PIDRamp(0.1, -0.1, 1);
 %PIDRamp(0, -0.1, 1);
 %PIDRamp(-0.1, 0, 9);
 %PIDRamp(-0.1, 0.1, 1);
-getEncoders()
-pause(0.05);
-getEncoders()
+move(0, 0);
 'Done'
 
 %Runs the robot, initial velocity v, acceleration a, for time t
@@ -41,6 +40,7 @@ function PIDRamp(v, a, tf)
     global kcoeff, global kp, global ki, global kd;
     
     t = 0;
+    derr = 0;
     temp = getEncoders();
     encstart = temp;
     while t < tf
@@ -53,13 +53,15 @@ function PIDRamp(v, a, tf)
         dexp = v*t + a*t^2;
         dcurr = adjenc(1); %TODO: Do each component separately
         err = dexp-dcurr;
-        derr = (olderr-err)/dt;
-        derr(abs(derr)>1) = derr(abs(derr)>1)/abs(derr(abs(derr)>1))
+        if dt > 0
+            derr = (olderr-err)/dt;
+        end
+        derr(abs(derr)>1) = derr(abs(derr)>1)/abs(derr(abs(derr)>1));
         cumerr = cumerr + err*dt;
-        cumerr(abs(cumerr)>1) = cumerr(abs(cumerr)>1)/abs(cumerr(abs(cumerr)>1))
+        cumerr(abs(cumerr)>1) = cumerr(abs(cumerr)>1)/abs(cumerr(abs(cumerr)>1));
         %Plug in velocities and move
         vff = v + a*t;
-        vpid = kcoeff*(kp*err + kd*derr + ki*cumerr);
+        vpid = kcoeff*(kp*err + kd*derr +  ki*cumerr);
         vcomm = vff + vpid;
         move(vcomm, vcomm);
         pause(0.05);
@@ -124,14 +126,18 @@ end
 %Actual values if not simulating; simulated values otherwise
 function e = getEncoders()
     global simlv, global simrv, global simpos, global simle, global simre, global isSim, global vmax, global robot, global tStart, global tMove, global data, global origEnc
+    global origenc
     if ~isSim
         tstamp = double(robot.encoders.LatestMessage.Header.Stamp.Sec) + double(robot.encoders.LatestMessage.Header.Stamp.Nsec)/1e9;
         e = [robot.encoders.LatestMessage.Vector.X; robot.encoders.LatestMessage.Vector.Y; tstamp];
     else
         e = [simle; simre; toc(tStart)];
     end
+    if size(origenc,1) == 0
+        origenc = e;
+    end
+    e = e - origenc;
     data = [data, e];
-    data(:, end) = data(:, end) - data(:, 1);
 end
 
 %Wrapper for setVelocity
