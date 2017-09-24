@@ -13,11 +13,12 @@ tMove = tic; %Start timer for simulated move function
 
 global kp, global ki, global kd, global kcoeff
 kp = 0.01;
-ki = 0.00001;
-kd = 0.001;
+ki = 0;
+kd = 0;
 kcoeff = 1;
 
 global data, global vpid
+data = [];
 vpid = [-1, -1];
 
 PIDFFmove(1, 0.1, 1);
@@ -59,7 +60,7 @@ move(0, 0);
 %     end
 % end
 
-function PIDFFmove(d, v, tr)
+function PIDFFmove(d, v, tr)  
     global data, global vpid, global kp, global ki, global kd, global kcoeff
     a = v/tr;
     tf = d/v+tr;
@@ -80,11 +81,11 @@ function PIDFFmove(d, v, tr)
         err = [dexp - (temp(1:2))'];
         derr = (err - olderr)/dt;
         if abs(derr(1)) > 1
-            'Warning: Error changed a lot in one time step'
+            'Warning: Error changed a lot in one time step';
             derr(1) = 1*sign(derr(1));
         end
         if abs(derr(2)) > 1
-            'Warning: Error changed a lot in one time step'
+            'Warning: Error changed a lot in one time step';
             derr(2) = 1*sign(derr(2));
         end
         cumerr = cumerr + err*dt;
@@ -96,9 +97,9 @@ function PIDFFmove(d, v, tr)
             'Warning: Possible integral windup'
             cumerr(2) = 10*sign(cumerr(2));
         end
-        vpid = kcoeff*(kp*err + kd*derr + ki*cumerr)
-        vff = [a*t, a*t]
-        vcomm = vpid + vff
+        vpid = kcoeff*(kp*err + kd*derr + ki*cumerr);
+        vff = [a*t, a*t];
+        vcomm = vpid + vff;
         move(vcomm(1), vcomm(2));
         pause(0.05);
         plot(data(3, :), data(1, :));

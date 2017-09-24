@@ -2,7 +2,7 @@
 clear all;
 
 global simlv, global simrv, global simpos, global simle, global simre, global isSim, global vmax, global robot, global tStart, global tMove, global data, global origEnc
-isSim = true;
+isSim = false;
 simlv = 0; %Left velocity
 simrv = 0; %Right velocity
 simle = 1234; %Encoder values (random to start)
@@ -13,9 +13,10 @@ vmax = 0.5;
 
 %2.54 cm = 1 in (exact conversion)
 
-if ~isSim
+%if ~isSim
     robot = raspbot();
-end
+    'robot initialized'
+%end
 tStart = tic; %Timer that never stops
 tMove = tic; %Timer that's reset each call to the move function
 
