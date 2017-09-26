@@ -1,5 +1,5 @@
 global robot, global isSim, global vMax, global tMove, global tStart, global wheelbase, global simle, global simre, global simlv, global simrv;
-isSim = false;
+isSim = true;
 if(~isSim)
     robot = raspbot();
 end
@@ -105,7 +105,7 @@ function PIDFFmove(d, v, tr)
         temp = getEncoders()-tstart;
         data = [data, temp];
         oldt = t;
-        t = temp(3)-0.12;
+        t = temp(3);
         dt = t - oldt;
         err = [dexp - (temp(1:2))'];
         if dt < 0
