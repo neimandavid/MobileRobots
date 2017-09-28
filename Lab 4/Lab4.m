@@ -1,5 +1,5 @@
 global robot, global isSim, global vMax, global tMove, global tStart, global wheelbase, global simle, global simre, global simlv, global simrv;
-isSim = true;
+isSim = false;
 if(~isSim)
     robot = raspbot();
 end
@@ -12,8 +12,10 @@ tStart = tic; %Start timer for everything
 tMove = tic; %Start timer for simulated move function
 
 global kp, global ki, global kd, global kcoeff
-kp = 1.5;
-ki = 1;
+
+%1.5, 1, 0.1
+kp = 1;
+ki = 0.01;
 kd = 0.1;
 kcoeff = 1;
 
