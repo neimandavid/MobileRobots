@@ -44,12 +44,12 @@ wcomm = 0;
 %PID gains
 kcoeff = 3;
 kx = 1;
-ky = 1;
+ky = 10;
 kt = 1; %kth is already taken!!!
 kdx = 0.1;
 kix = 0.001;
-kdy = 0.1;
-kiy = 0.01;
+kdy = 1;
+kiy = .1;
 kdt = 0.1;
 kit = 0.01;
 
