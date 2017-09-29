@@ -19,6 +19,7 @@ t = -0.1; %t starts at -0.1 to compensate for my first encoder reading
 data = [x; y; th; t];
 pdata = [x; y; th; t];
 edata = [0; 0; 0; t];
+cumerror = [0; 0; 0];
 oldenc = getEncoders();
 move(0, 0);
 pause(0.1); %Allow another set of encoder readings to come in for ease of math
@@ -45,8 +46,16 @@ kcoeff = 3;
 kx = 1;
 ky = 1;
 kt = 1; %kth is already taken!!!
+kdx = 0.1;
+kix = 0.001;
+kdy = 0.1;
+kiy = 0.01;
+kdt = 0.1;
+kit = 0.01;
 
 c = 0;
+d = 0;
+firstloop = true;
 
 close all
 
@@ -57,8 +66,21 @@ while true
    if dt == 0
        'No new encoder data'
        c = c + 1
+       d = d + 1
+       pause(0.05);
        continue
    end
+   if norm(newenc-oldenc) > 0.3 & d < 5 & firstloop == false
+       'Bad encoder data?'
+       newenc-oldenc
+       c = c + 1
+       d = d + 1
+       pause(0.05)
+       continue
+   end
+   d = 0;
+   firstloop = false;
+   %'Yay, new encoder data!'
    vl = (newenc(1)-oldenc(1))/dt;
    vr = (newenc(2)-oldenc(2))/dt;
    [Vmeas, wmeas] = IKcomp(vl, vr);
@@ -100,10 +122,14 @@ while true
        thdiff = thdiff - 2*pi;
    end
    tempe = [xdiff; ydiff; thdiff; t];
+   cumerror = cumerror + [xdiff; ydiff; thdiff]*dt;
+   cumerror(abs(cumerror) > 1) = cumerror(abs(cumerror) > 1)./abs(cumerror(abs(cumerror) > 1));
    edata = [edata, tempe];
+   derror = [edata(1:3, end) - edata(1:3, end-1)]/dt;
+   derror(abs(derror) > 1) = derror(abs(derror) > 1)./abs(derror(abs(derror) > 1));
    %xdiff, ydiff are now error in robot frame
-   vpid = kcoeff*(kx*xdiff);
-   wpid = kcoeff*(ky*ydiff + kt*thdiff);
+   vpid = kcoeff*(kx*xdiff+kdx*derror(1)+kix*cumerror(1));
+   wpid = kcoeff*(ky*ydiff+kdy*derror(2)+kiy*cumerror(2) + kt*thdiff+kdt*derror(3)+kit*cumerror(3));
    
    vcomm = vff + vpid;
    wcomm = wff + wpid;
