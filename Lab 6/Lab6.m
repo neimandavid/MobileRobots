@@ -11,205 +11,194 @@ wheelbase = 0.09; %0.09 m
 tStart = tic; %Start timer for everything
 tMove = tic; %Start timer for simulated move function
 
-x = 0; y = 0; th = 0; dist = 0;%State variables
-xp = 0; yp = 0; thp = 0; %Predicted stuff
-t = -0.1; %t starts at -0.1 to compensate for my first encoder reading
-%I only ever use t to compute the trajectory
-%I use dt for all the estimation so this should be okay
-data = [x; y; th; t];
-pdata = [x; y; th; t];
-edata = [0; 0; 0; t];
-cumerror = [0; 0; 0];
-oldenc = getEncoders();
-move(0, 0);
-pause(0.1); %Allow another set of encoder readings to come in for ease of math
+moveRelPos(0.3048, 0.3048, 0, 0.2);
+moveRelPos(-0.6096, -0.6096, -pi/2, 0.2);
+moveRelPos(-0.3048, 0.3048, pi/2, 0.2);
 
-%Figure 8 parameters:
-ks = 3;
-vff = 0.2;
-sf = 1;
-tf = sf/vff*ks;
-kth = 2*pi/sf;
-kk = 15.1084;
-%Notes: They wanted me to use a scaled time T off the computer clock
-%T would be scaled using ks to t
-%Instead, I scaled tf and s by ks, which should be equivalent
-%Basically, anything using a value of t uses the value t/ks, t being real time
-%whereas before it would use t = T/ks, T being real time
+function moveRelPos(xtarget, ytarget, thtarget, vMax)
 
-wff = 0;
-vcomm = vff;
-wcomm = 0;
+    x = 0; y = 0; th = 0; dist = 0;%State variables
+    xp = 0; yp = 0; thp = 0; %Predicted state
+    t = -0.1; %t starts at -0.1 to compensate for my first encoder reading
+    data = [x; y; th; t]; %Where we are
+    pdata = [x; y; th; t]; %Where we think we are
+    edata = [0; 0; 0; t]; %Difference between last time step and this one
+    cumerror = [0; 0; 0];
+    oldenc = getEncoders();
+    pause(0.1); %Allow another set of encoder readings to come in for ease of math
 
-%PID gains
-kcoeff = 0;
-kx = 3;
-ky = 30;
-kt = 3; %kth is already taken!!!
-kdx = 0.1;
-kix = 0.001;
-kdy = 1;
-kiy = .1;
-kdt = 0.1;
-kit = 0.01;
+    %3D PID gains
+    kcoeff = 1; %Global scaling factor for PID. 0 for no PID
+    kx = 3;
+    ky = 30;
+    kt = 3;
+    kdx = 0.1;
+    kix = 0.001;
+    kdy = 3;
+    kiy = .3;
+    kdt = 0.1;
+    kit = 0.01;
 
-c = 0;
-d = 0;
-firstloop = true;
+    badenccount = 0;
+    consecbadenccount = 0;
+    firstloop = true;
 
-close all
+    %sgn is direction of driving (forward or backward). Using 1 (forward)
+    curve = cubicSpiral.planTrajectory(xtarget, ytarget, thtarget, 1);
+    planVelocities(curve, vMax);
+    tend = 0;
 
-xtarget = 0.25;
-ytarget = 0.25;
-thtarget = 0;
-%sgn is direction of driving (forward or backward)
-curve = cubicSpiral.planTrajectory(xtarget, ytarget, thtarget, 1);
-maxcommvel = 0.4;
-planVelocities(curve, maxcommvel);
-tf = max(curve.timeArray);
+    while true  
+       newenc = getEncoders(); %Ideally would have a clever wait here
+       %Compute dt and relevant speeds/distances
+       dt = newenc(3)-oldenc(3);
+       if dt == 0
+           'No new encoder data'
+           badenccount = badenccount + 1
+           consecbadenccount = consecbadenccount + 1
+           pause(0.05);
+           continue
+       end
+       if norm(newenc-oldenc) > 0.3 & consecbadenccount < 3 & firstloop == false
+           'Bad encoder data?'
+           newenc-oldenc
+           badenccount = badenccount + 1
+           consecbadenccount = consecbadenccount + 1
+           pause(0.05)
+           continue
+       end
+       consecbadenccount = 0;
+       firstloop = false;
+       %'Yay, new encoder data!'
+       %These are measured vl and vr; commanded ones handled by FKmove()
+       vl = (newenc(1)-oldenc(1))/dt;
+       vr = (newenc(2)-oldenc(2))/dt;
+       [Vmeas, wmeas] = IKcomp(vl, vr);
+       %Update state estimate (using midpoint method; could use Runge-Kutta, etc.)
+       th = th + wmeas*dt/2;
+       x = x + Vmeas * cos(th)*dt;
+       y = y + Vmeas * sin(th)*dt;
+       th = th + wmeas*dt/2;
+       dist = dist + abs(Vmeas)*dt;
+       temp = [x; y; th; t];
+       data = [data, temp];
+       
+       dmax = max(curve.distArray);
+       if dist > dmax
+           %Set target position to end of trajectory, increment end timer,
+           %and turn off feedforward commands
+           xp = curve.poseArray(1, end);
+           yp = curve.poseArray(2, end);
+           thp = curve.poseArray(3, end);
+           vff = 0;
+           wff = 0;
+           tend = tend + dt;
+       else   
+           %Helper variables for linear interpolation
+           dprev = max(curve.distArray(curve.distArray <= dist));
+           dnext = min(curve.distArray(curve.distArray > dist));
+           iprev = find(curve.distArray == dprev, 1);
+           inext = find(curve.distArray == dnext, 1);
+           prop = (dist - dprev)/(dnext-dprev);
+           
+           %Actually do the linear interpolation for feedforward
+           vprev = curve.VArray(iprev);
+           vnext = curve.VArray(inext);
+           vff = prop*vprev + (1-prop)*vnext;
+           wprev = curve.wArray(iprev);
+           wnext = curve.wArray(inext);
+           wff = prop*wprev + (1-prop)*wnext;
+           
+           %Interpolate predicted location
+           xp = prop*curve.poseArray(1, iprev) + (1-prop)*curve.poseArray(1, inext);
+           yp = prop*curve.poseArray(2, iprev) + (1-prop)*curve.poseArray(2, inext);
+           thp = prop*curve.poseArray(3, iprev) + (1-prop)*curve.poseArray(3, inext);
+           tempp = [xp; yp; thp; t];
+           pdata = [pdata, tempp];
+       end
+       
+       %Add PID stuff here
+       xdiff = xp-x;
+       ydiff = yp-y;
+       R = [cos(th), sin(th); -sin(th), cos(th)];
+       temp = R*[xdiff; ydiff];
+       xdiff = temp(1);
+       ydiff = temp(2);
+       thdiff = thp - th; %Normalize this to [-pi, pi]
+       while thdiff < -pi
+           thdiff = thdiff + 2*pi;
+       end
+       while thdiff > pi
+           thdiff = thdiff - 2*pi;
+       end
+       tempe = [xdiff; ydiff; thdiff; t];
+       cumerror = cumerror + [xdiff; ydiff; thdiff]*dt;
+       cumerror(abs(cumerror) > 1) = cumerror(abs(cumerror) > 1)./abs(cumerror(abs(cumerror) > 1));
+       edata = [edata, tempe];
+       derror = [edata(1:3, end) - edata(1:3, end-1)]/dt;
+       derror(abs(derror) > 1) = derror(abs(derror) > 1)./abs(derror(abs(derror) > 1));
+       %xdiff, ydiff are now error in robot frame
+       vpid = kcoeff*(kx*xdiff+kdx*derror(1)+kix*cumerror(1));
+       wpid = kcoeff*(ky*ydiff+kdy*derror(2)+kiy*cumerror(2) + kt*thdiff+kdt*derror(3)+kit*cumerror(3));
 
-while true  
-   newenc = getEncoders(); %Ideally would have a clever wait here
-   %Compute dt and relevant speeds/distances
-   dt = newenc(3)-oldenc(3);
-   
-   %c counts number of encoder issues
-   %d counts consecutive
-   if dt == 0
-       'No new encoder data'
-       c = c + 1
-       d = d + 1
+       vcomm = vff + vpid;
+       wcomm = wff + wpid;
+
+       FKmove(vcomm, wcomm);
+       %Plot stuff
+       plot(data(1,:), data(2,:));
+       hold on
+       plot(pdata(1, :), pdata(2, :));
+       hold off
+       %quiver(x, y, Vmeas*cos(th), Vmeas*sin(th));
+       axis([-0.6 0.6 -0.6 0.6]);
+       title('Robot Trajectory');
+       xlabel('x (m)');
+       ylabel('y (m)');
+       %Update encoder buffer
+       oldenc = newenc;
+       %Pause so Matlab doesn't hate me...
        pause(0.05);
-       continue
-   end
-   if norm(newenc-oldenc) > 0.3 & d < 3 & firstloop == false
-       'Bad encoder data?'
-       newenc-oldenc
-       c = c + 1
-       d = d + 1
-       pause(0.05)
-       continue
-   end
-   d = 0;
-   firstloop = false;
-   %'Yay, new encoder data!'
-   vl = (newenc(1)-oldenc(1))/dt;
-   vr = (newenc(2)-oldenc(2))/dt;
-   [Vmeas, wmeas] = IKcomp(vl, vr);
-   %Update state estimate (using midpoint method; could use Runge-Kutta, etc.)
-   th = th + wmeas*dt/2;
-   x = x + Vmeas * cos(th)*dt;
-   y = y + Vmeas * sin(th)*dt;
-   th = th + wmeas*dt/2;
-   dist = dist + Vmeas*dt;
-   %Update state prediction
-   thp = thp + wff*dt/2;
-   xp = xp + vff*cos(thp)*dt;
-   yp = yp + vff*sin(thp)*dt;
-   thp = thp + wff*dt/2;
-   t = t + dt;
-   temp = [x; y; th; t];
-   data = [data, temp];
-   tempp = [xp; yp; thp; t];
-   pdata = [pdata, tempp];
-   %Compute trajectory
-   dmax = max(curve.distArray);
-   if dist > dmax%t >= tf
-       vff = 0;
-       wff = 0;
-   else
-       dprev = max(curve.distArray(curve.distArray <= dist));
-       dnext = min(curve.distArray(curve.distArray > dist));
-       prop = (d - dprev)/(dnext-dprev);
-       vprev = curve.VArray(find(curve.distArray == dprev, 1));
-       vnext = curve.VArray(find(curve.distArray == dnext, 1));
-       vff = prop*vprev + (1-prop)*vnext;
-       wprev = curve.wArray(find(curve.distArray == dprev, 1));
-       wnext = curve.wArray(find(curve.distArray == dnext, 1));
-       wff = prop*wprev + (1-prop)*wnext;
-   end
-   %Add PID stuff here
-   xdiff = xp-x;
-   ydiff = yp-y;
-   R = [cos(th), sin(th); -sin(th), cos(th)];
-   temp = R*[xdiff; ydiff];
-   xdiff = temp(1);
-   ydiff = temp(2);
-   thdiff = thp - th; %Normalize this to [-pi, pi]
-   while thdiff < -pi
-       thdiff = thdiff + 2*pi;
-   end
-   while thdiff > pi
-       thdiff = thdiff - 2*pi;
-   end
-   tempe = [xdiff; ydiff; thdiff; t];
-   cumerror = cumerror + [xdiff; ydiff; thdiff]*dt;
-   cumerror(abs(cumerror) > 1) = cumerror(abs(cumerror) > 1)./abs(cumerror(abs(cumerror) > 1));
-   edata = [edata, tempe];
-   derror = [edata(1:3, end) - edata(1:3, end-1)]/dt;
-   derror(abs(derror) > 1) = derror(abs(derror) > 1)./abs(derror(abs(derror) > 1));
-   %xdiff, ydiff are now error in robot frame
-   vpid = kcoeff*(kx*xdiff+kdx*derror(1)+kix*cumerror(1));
-   wpid = kcoeff*(ky*ydiff+kdy*derror(2)+kiy*cumerror(2) + kt*thdiff+kdt*derror(3)+kit*cumerror(3));
-   
-   vcomm = vff + vpid;
-   wcomm = wff + wpid;
-   
-   FKmove(vcomm, wcomm);
-   %Plot stuff
-   plot(data(1,:), data(2,:));
-   hold on
-   plot(pdata(1, :), pdata(2, :));
-   hold off
-   %quiver(x, y, Vmeas*cos(th), Vmeas*sin(th));
-   axis([-0.6 0.6 -0.6 0.6]);
-   title('Robot Trajectory');
-   xlabel('x (m)');
-   ylabel('y (m)');
-   %Update encoder buffer
-   oldenc = newenc;
-   %Pause so Matlab doesn't hate me...
-   pause(0.05);
-   %Check for exit
-   if t >= tf+1
-       move(0, 0); %Stop
-       break
-   end
+       %Check for exit
+       if tend >= 1
+           move(0, 0); %Stop
+           break
+       end
+    end
+
+    figure;
+    plot(edata(4, :), edata(1, :));
+    hold on
+    plot(edata(4, :), edata(2, :));
+    plot(edata(4, :), edata(3, :));
+    title('Errors');
+    xlabel('Time (s)');
+    ylabel('Error (m or rad)');
+    legend('x', 'y', 'theta');
+    hold off
+
+    figure;
+    hold on
+    plot(data(1, :), data(2, :));
+    plot(pdata(1, :), pdata(2, :));
+    title('Trajectories');
+    xlabel('X (m)');
+    ylabel('Y (m)');
+    legend('Actual', 'Predicted');
+    hold off
+
+    figure;
+    hold on
+    for x = 1:3
+        plot(data(4, :), data(x, :));
+        plot(pdata(4, :), pdata(x, :));
+    end
+    title('Stuff vs. Time');
+    xlabel('Time (s)');
+    ylabel('Parameter (m or rad)');
+    legend('x', 'x predicted', 'y', 'y predicted', 'theta', 'theta predicted');
+    hold off
 end
-
-plot(edata(4, :), edata(1, :));
-hold on
-plot(edata(4, :), edata(2, :));
-plot(edata(4, :), edata(3, :));
-title('Errors');
-xlabel('Time (s)');
-ylabel('Error (m or rad)');
-legend('x', 'y', 'theta');
-hold off
-
-figure;
-hold on
-plot(data(1, :), data(2, :));
-plot(pdata(1, :), pdata(2, :));
-title('Trajectories');
-xlabel('X (m)');
-ylabel('Y (m)');
-legend('Actual', 'Predicted');
-hold off
-
-figure;
-hold on
-for x = 1:3
-    plot(data(4, :), data(x, :));
-    plot(pdata(4, :), pdata(x, :));
-end
-title('Stuff vs. Time');
-xlabel('Time (s)');
-ylabel('Parameter (m or rad)');
-legend('x', 'x predicted', 'y', 'y predicted', 'theta', 'theta predicted');
-hold off
-
-'Finished moving'
 
 function [V, w] = IKcomp(vl, vr)
     global wheelbase;
