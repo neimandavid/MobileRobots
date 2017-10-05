@@ -86,6 +86,17 @@ classdef cubicSpiral < handle
                     x=0.0; y = 0.0; t = 0.0; r = 0.0;
                     broke = false;
                     for i=1:clothSamples
+                        s = i*ds;
+                        k = s*(a+b*s)*(s-sMax); %new kappa
+                        t = t + k*ds;
+                        x = x + cos(t)*ds;
+                        y = y + sin(t)*ds;
+                        if abs(t) > tMax
+                            broke = true;
+                            break
+                        end
+                        r = r + k^2*ds;
+                % fill this in
                     % Compute the curve. Break out of this loop, and then 
                     % immediately continue to next iteration of the for b loop 
                     % if tmax is exceeded in absolute value at any time.
@@ -255,7 +266,7 @@ classdef cubicSpiral < handle
             ds = sf/(obj.numSamples-1);
             for i=1:obj.numSamples-1
                 s = i*ds;
-                obj.curvArray(i+1) = s*(a-b*s)*(s-sf); %new kappa
+                obj.curvArray(i+1) = s*(a+b*s)*(s-sf); %new kappa
                 obj.poseArray(3, i+1) = obj.poseArray(3, i) + (obj.curvArray(i+1) + obj.curvArray(i))/2*ds;
                 obj.poseArray(1, i+1)= obj.poseArray(1, i) + cos((obj.poseArray(3, i+1) + obj.poseArray(3, i))/2)*ds;
                 obj.poseArray(2, i+1)= obj.poseArray(2, i) + sin((obj.poseArray(3, i+1) + obj.poseArray(3, i))/2)*ds;
