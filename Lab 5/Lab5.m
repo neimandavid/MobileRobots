@@ -42,10 +42,10 @@ vcomm = vff;
 wcomm = 0;
 
 %PID gains
-kcoeff = 3;
-kx = 1;
-ky = 10;
-kt = 1; %kth is already taken!!!
+kcoeff = 1;
+kx = 3;
+ky = 30;
+kt = 3; %kth is already taken!!!
 kdx = 0.1;
 kix = 0.001;
 kdy = 1;
@@ -70,7 +70,7 @@ while true
        pause(0.05);
        continue
    end
-   if norm(newenc-oldenc) > 0.3 & d < 5 & firstloop == false
+   if norm(newenc-oldenc) > 0.3 & d < 3 & firstloop == false
        'Bad encoder data?'
        newenc-oldenc
        c = c + 1
