@@ -170,7 +170,7 @@ classdef cubicSpiral < handle
             persistent a1T a2T b1T b2T r1T r2T;
                     
             if(isempty(inited))
-                load('cubicSpirals2mm_015rads','a1Tab','a2Tab','b1Tab','b2Tab','r1Tab','r2Tab');
+                load('cubicSpirals','a1Tab','a2Tab','b1Tab','b2Tab','r1Tab','r2Tab');
                 inited = true;
                 a1T = a1Tab;a2T = a2Tab;b1T = b1Tab;b2T = b2Tab;r1T = r1Tab;r2T = r2Tab;
             end
@@ -247,7 +247,6 @@ classdef cubicSpiral < handle
         end
         
         function integrateCommands(obj)
-            %obj is probably a cubic spiral
             len = obj.numSamples;
             obj.distArray  = zeros(1,len);
             obj.poseArray  = zeros(3,len);
@@ -270,6 +269,7 @@ classdef cubicSpiral < handle
                 obj.poseArray(3, i+1) = obj.poseArray(3, i) + (obj.curvArray(i+1) + obj.curvArray(i))/2*ds;
                 obj.poseArray(1, i+1)= obj.poseArray(1, i) + cos((obj.poseArray(3, i+1) + obj.poseArray(3, i))/2)*ds;
                 obj.poseArray(2, i+1)= obj.poseArray(2, i) + sin((obj.poseArray(3, i+1) + obj.poseArray(3, i))/2)*ds;
+                obj.distArray(i+1) = s;
                 % fill this in
             end
             i = obj.numSamples;
@@ -299,18 +299,21 @@ classdef cubicSpiral < handle
             
     methods(Access = public)
         
-        function obj = cubicSpiral(parms,numSamples)
+        function obj = cubicSpiral(parms,numSamples,vMax)
             % Constructs a cubicSpiral for the supplied parameters. The
             % parameters are in order [a b sf]. numSamples is the
             % number of integration steps used to integrate the entire 			
             % curve. The curve is integrated immediately when this
             % this constructor is called. Thereafter the public arrays 
             % distArray, poseArray, and curvArray are populated.
-            if(nargin == 2)
+            if(nargin >= 2)
                 obj.numSamples = numSamples;
                 obj.parms = parms;
                 obj.integrateCommands();
                 obj.sgn = sign(parms(3)); % Critical for proper time series
+            end
+            if(nargin >= 3)
+                obj.planVelocities(vMax);
             end
         end
         
@@ -331,14 +334,21 @@ classdef cubicSpiral < handle
             for i=1:obj.numSamples
                 Vbase = Vmax;
                 % Add velocity ramps for first and last 5 cm
+                
+                %Not sure what these variables do
                 s = obj.distArray(i);
                 sf = obj.distArray(obj.numSamples);
+                
+                %I believe this is doing ramps only if the trajectory is
+                %long
+                %Problem is I think it's not doing anything if small (gives
+                %back v constant, not a triangle ramp...)
                 if(abs(sf) > 2.0*obj.rampLength) % no ramp for short trajectories
                     sUp = abs(s);
                     sDn = abs(sf-s);
                     if(sUp < obj.rampLength) % ramp up
                         Vbase = Vbase * sUp/obj.rampLength;
-                    elseif(sDn < 0.05) % ramp down
+                    elseif(sDn < obj.rampLength) % ramp down
                         Vbase = Vbase * sDn/obj.rampLength;
                     end
                 end
@@ -348,7 +358,7 @@ classdef cubicSpiral < handle
                 K = obj.curvArray(i);
                 w = K*V;
                 vr = V + robotModel.W2*w;
-                vl = V - robotModel.W2*w;               
+                vl = V - robotModel.W2*w;              
                 if(abs(vr) > Vbase)
                     vrNew = Vbase * sign(vr);
                     vl = vl * vrNew/vr;
@@ -362,7 +372,7 @@ classdef cubicSpiral < handle
                 obj.vlArray(i) = vl;
                 obj.vrArray(i) = vr;
                 obj.VArray(i) = (vr + vl)/2.0;
-                obj.wArray(i) = (vr - vl)/robotModel.W;                
+                obj.wArray(i) = (vr - vl)/robotModel.W;
             end
             % Now compute the times that are implied by the velocities and
             % the distances.
