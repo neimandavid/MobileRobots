@@ -16,25 +16,17 @@ pose = start;
 
 close all
 
-pose = moveRelPosSmart(0.3048, 0.3048, 0, 0.2, start, pose)
-pose = moveRelPosSmart(-0.6096, -0.6096, -pi/2, 0.2, start, pose)
-pose = moveRelPosSmart(-0.3048, 0.3048, pi/2, 0.2, start, pose)
+pose = moveRelPos(0.3048, 0.3048, 0, 0.2, pose);
+pose = moveRelPos(-0.6096, -0.6096, -pi/2, 0.2, pose);
+pose = moveRelPos(-0.3048, 0.3048, pi/2, 0.2, pose);
 
-function poseout = moveRelPosSmart(xt, yt, tht, vMax, startframe, currentframe)
-    %They have a pose class for this, but I don't want to play with signing
-    %conventions...
-    newframe = moveRelPos(xt, yt, tht, vMax);  
-    reltheta = currentframe(3) - startframe(3);
-    currentframe(3) = currentframe(3) + newframe(3);
-    currentframe(1) = currentframe(1) + cos(reltheta)*newframe(1) -sin(reltheta)*newframe(2);
-    currentframe(2) = currentframe(2) + sin(reltheta)*newframe(1) + cos(reltheta)*newframe(2);
-    poseout = currentframe;
-end
-
-function pose = moveRelPos(xtarget, ytarget, thtarget, vMax)
-
-    x = 0; y = 0; th = 0; dist = 0;%State variables
-    xp = 0; yp = 0; thp = 0; %Predicted state
+function poseout = moveRelPos(xtarget, ytarget, thtarget, vMax, currentPose)
+    if nargin == 4
+        currentPose = [0, 0, 0];
+    end
+    temppose = pose(currentPose(1), currentPose(2), currentPose(3));
+    x = currentPose(1); y = currentPose(2); th = currentPose(3); dist = 0;%State variables
+    xp = 0; yp = 0; thp = currentPose(3); %Predicted state
     t = -0.1; %t starts at -0.1 to compensate for my first encoder reading
     data = [x; y; th; t]; %Where we are
     pdata = [x; y; th; t]; %Where we think we are
@@ -61,8 +53,18 @@ function pose = moveRelPos(xtarget, ytarget, thtarget, vMax)
 
     %sgn is direction of driving (forward or backward). Using 1 (forward)
     curve = cubicSpiral.planTrajectory(xtarget, ytarget, thtarget, 1);
+    
+    %Convert poseArray into [0, 0, 0] coordinates
+    temp = ones(size(curve.poseArray));
+    temp(1:2, :) = curve.poseArray(1:2, :);
+    temp = bToA(temppose)*temp;
+    temp(3, :) = curve.poseArray(3, :) + currentPose(3);
+    curve.poseArray = temp;
+    
     planVelocities(curve, vMax);
     tend = 0;
+    
+    figure;
 
     while true  
        loopcount = loopcount + 1;
@@ -86,7 +88,6 @@ function pose = moveRelPos(xtarget, ytarget, thtarget, vMax)
            continue
        end
        consecbadenccount = 0;
-       firstloop = false;
        %'Yay, new encoder data!'
        %These are measured vl and vr; commanded ones handled by FKmove()
        vl = (newenc(1)-oldenc(1))/dt;
@@ -184,18 +185,19 @@ function pose = moveRelPos(xtarget, ytarget, thtarget, vMax)
        end
     end
 
-    figure;
-    plot(edata(4, :), edata(1, :));
-    hold on
-    plot(edata(4, :), edata(2, :));
-    plot(edata(4, :), edata(3, :));
-    title('Errors');
-    xlabel('Time (s)');
-    ylabel('Error (m or rad)');
-    legend('x', 'y', 'theta');
-    hold off
+%     figure;
+%     plot(edata(4, :), edata(1, :));
+%     hold on
+%     plot(edata(4, :), edata(2, :));
+%     plot(edata(4, :), edata(3, :));
+%     title('Errors');
+%     xlabel('Time (s)');
+%     ylabel('Error (m or rad)');
+%     legend('x', 'y', 'theta');
+%     hold off
 
-    figure;
+    %figure;
+    reset(gca)
     hold on
     plot(data(1, :), data(2, :));
     plot(pdata(1, :), pdata(2, :));
@@ -205,20 +207,19 @@ function pose = moveRelPos(xtarget, ytarget, thtarget, vMax)
     legend('Actual', 'Predicted');
     hold off
 
-    figure;
-    hold on
-    for index = 1:3
-        plot(data(4, :), data(index, :));
-        plot(pdata(4, :), pdata(index, :));
-    end
-    title('Stuff vs. Time');
-    xlabel('Time (s)');
-    ylabel('Parameter (m or rad)');
-    legend('x', 'x predicted', 'y', 'y predicted', 'theta', 'theta predicted');
-    hold off
+%     figure;
+%     hold on
+%     for index = 1:3
+%         plot(data(4, :), data(index, :));
+%         plot(pdata(4, :), pdata(index, :));
+%     end
+%     title('Stuff vs. Time');
+%     xlabel('Time (s)');
+%     ylabel('Parameter (m or rad)');
+%     legend('x', 'x predicted', 'y', 'y predicted', 'theta', 'theta predicted');
+%     hold off
     
-    size(x)
-    pose = [x; y; th];
+    poseout = [x; y; th];
 end
 
 function [V, w] = IKcomp(vl, vr)
