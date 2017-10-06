@@ -1,5 +1,5 @@
 global robot, global isSim, global vMax, global tMove, global tStart, global wheelbase, global simle, global simre, global simlv, global simrv;
-isSim = true;
+isSim = false;
 if(~isSim)
     robot = raspbot();
 end
