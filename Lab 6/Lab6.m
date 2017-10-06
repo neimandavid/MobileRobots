@@ -11,11 +11,27 @@ wheelbase = 0.09; %0.09 m
 tStart = tic; %Start timer for everything
 tMove = tic; %Start timer for simulated move function
 
-moveRelPos(0.3048, 0.3048, 0, 0.2);
-moveRelPos(-0.6096, -0.6096, -pi/2, 0.2);
-moveRelPos(-0.3048, 0.3048, pi/2, 0.2);
+start = [0; 0; 0]; %Start position: [x, y, theta]
+pose = start;
 
-function moveRelPos(xtarget, ytarget, thtarget, vMax)
+close all
+
+pose = moveRelPosSmart(0.3048, 0.3048, 0, 0.2, start, pose)
+pose = moveRelPosSmart(-0.6096, -0.6096, -pi/2, 0.2, start, pose)
+pose = moveRelPosSmart(-0.3048, 0.3048, pi/2, 0.2, start, pose)
+
+function poseout = moveRelPosSmart(xt, yt, tht, vMax, startframe, currentframe)
+    %They have a pose class for this, but I don't want to play with signing
+    %conventions...
+    newframe = moveRelPos(xt, yt, tht, vMax);  
+    reltheta = currentframe(3) - startframe(3);
+    currentframe(3) = currentframe(3) + newframe(3);
+    currentframe(1) = currentframe(1) + cos(reltheta)*newframe(1) -sin(reltheta)*newframe(2);
+    currentframe(2) = currentframe(2) + sin(reltheta)*newframe(1) + cos(reltheta)*newframe(2);
+    poseout = currentframe;
+end
+
+function pose = moveRelPos(xtarget, ytarget, thtarget, vMax)
 
     x = 0; y = 0; th = 0; dist = 0;%State variables
     xp = 0; yp = 0; thp = 0; %Predicted state
@@ -41,7 +57,7 @@ function moveRelPos(xtarget, ytarget, thtarget, vMax)
 
     badenccount = 0;
     consecbadenccount = 0;
-    firstloop = true;
+    loopcount = 0;
 
     %sgn is direction of driving (forward or backward). Using 1 (forward)
     curve = cubicSpiral.planTrajectory(xtarget, ytarget, thtarget, 1);
@@ -49,6 +65,7 @@ function moveRelPos(xtarget, ytarget, thtarget, vMax)
     tend = 0;
 
     while true  
+       loopcount = loopcount + 1;
        newenc = getEncoders(); %Ideally would have a clever wait here
        %Compute dt and relevant speeds/distances
        dt = newenc(3)-oldenc(3);
@@ -59,9 +76,10 @@ function moveRelPos(xtarget, ytarget, thtarget, vMax)
            pause(0.05);
            continue
        end
-       if norm(newenc-oldenc) > 0.3 & consecbadenccount < 3 & firstloop == false
+       if norm(newenc-oldenc) > 0.5 & consecbadenccount < 3 & loopcount > 5
            'Bad encoder data?'
            newenc-oldenc
+           loopcount
            badenccount = badenccount + 1
            consecbadenccount = consecbadenccount + 1
            pause(0.05)
@@ -151,7 +169,7 @@ function moveRelPos(xtarget, ytarget, thtarget, vMax)
        plot(pdata(1, :), pdata(2, :));
        hold off
        %quiver(x, y, Vmeas*cos(th), Vmeas*sin(th));
-       axis([-0.6 0.6 -0.6 0.6]);
+       axis([-1 1 -1 1]);
        title('Robot Trajectory');
        xlabel('x (m)');
        ylabel('y (m)');
@@ -189,15 +207,18 @@ function moveRelPos(xtarget, ytarget, thtarget, vMax)
 
     figure;
     hold on
-    for x = 1:3
-        plot(data(4, :), data(x, :));
-        plot(pdata(4, :), pdata(x, :));
+    for index = 1:3
+        plot(data(4, :), data(index, :));
+        plot(pdata(4, :), pdata(index, :));
     end
     title('Stuff vs. Time');
     xlabel('Time (s)');
     ylabel('Parameter (m or rad)');
     legend('x', 'x predicted', 'y', 'y predicted', 'theta', 'theta predicted');
     hold off
+    
+    size(x)
+    pose = [x; y; th];
 end
 
 function [V, w] = IKcomp(vl, vr)
