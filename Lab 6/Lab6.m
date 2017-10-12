@@ -1,5 +1,5 @@
 global robot, global isSim, global vMax, global tMove, global tStart, global wheelbase, global simle, global simre, global simlv, global simrv;
-isSim = false;
+isSim = true;
 if(~isSim)
     robot = raspbot();
 end
@@ -11,10 +11,33 @@ wheelbase = 0.09; %0.09 m
 tStart = tic; %Start timer for everything
 tMove = tic; %Start timer for simulated move function
 
-start = [0; 0; 0]; %Start position: [x, y, theta]
+start = [0; 0; pi/4]; %Start position: [x, y, theta]
 pose = start;
 
 close all
+
+% t = 0;
+% dt = 0.05;
+% startEnc = getEncoders();
+% data = [0; 0; 0];
+% while t < 5
+%     temp = getEncoders();
+%     data = [data, temp-startEnc];
+%     move(0.2, 0.2);
+%     t = t + dt;
+%     pause(dt);
+% end
+% t = 0;
+% while t < 5
+%     temp = getEncoders();
+%     data = [data, temp-startEnc];
+%     move(-0.2, -0.2);
+%     t = t + dt;
+%     pause(dt);
+% end
+% robot.stop;
+% 'Stopped'
+% plot(data(3, :), data(1, :));
 
 pose = moveRelPos(0.3048, 0.3048, 0, 0.2, pose);
 pose = moveRelPos(-0.6096, -0.6096, -pi/2, 0.2, pose);
@@ -71,6 +94,7 @@ function poseout = moveRelPos(xtarget, ytarget, thtarget, vMax, currentPose)
        newenc = getEncoders(); %Ideally would have a clever wait here
        %Compute dt and relevant speeds/distances
        dt = newenc(3)-oldenc(3);
+       t = t + dt;
        if dt == 0
            'No new encoder data'
            badenccount = badenccount + 1
@@ -184,6 +208,7 @@ function poseout = moveRelPos(xtarget, ytarget, thtarget, vMax, currentPose)
            break
        end
     end
+    
 
 %     figure;
 %     plot(edata(4, :), edata(1, :));
@@ -204,6 +229,13 @@ function poseout = moveRelPos(xtarget, ytarget, thtarget, vMax, currentPose)
     title('Trajectories');
     xlabel('X (m)');
     ylabel('Y (m)');
+    legend('Actual', 'Predicted');
+    hold off
+    
+    figure;
+    hold on
+    plot(data(4, :), data(1, :));
+    plot(pdata(4, :), pdata(1, :));
     legend('Actual', 'Predicted');
     hold off
 
@@ -279,9 +311,9 @@ function e = getEncoders()
     global simlv, global simrv, global simpos, global simle, global simre, global isSim, global vmax, global robot, global tStart, global tMove, global data, global origEnc
     if ~isSim
         tstamp = double(robot.encoders.LatestMessage.Header.Stamp.Sec) + double(robot.encoders.LatestMessage.Header.Stamp.Nsec)/1e9;
-        e = [robot.encoders.LatestMessage.Vector.X, robot.encoders.LatestMessage.Vector.Y, tstamp];
+        e = [robot.encoders.LatestMessage.Vector.X; robot.encoders.LatestMessage.Vector.Y; tstamp];
     else
-        e = [simle, simre, toc(tStart)];
+        e = [simle; simre; toc(tStart)];
     end
 end
 
