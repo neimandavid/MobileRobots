@@ -1,12 +1,12 @@
 global robot, global isSim, global vMax, global tMove, global tStart, global wheelbase, global simle, global simre, global simlv, global simrv, global simencnoise;
-isSim = true;
+isSim = false;
 if(~isSim)
     robot = raspbot();
 end
 simle = 0; simre = 0;
 simlv = 0; simrv = 0;
 rng('shuffle') %Get more randomness on simulated encoder noise (without this it's just psuedorandom)
-simencnoise = 0; %Fraction of velocity reading to randomly add/subtract as noise
+simencnoise = 1; %Fraction of velocity reading to randomly add/subtract as noise
 vMax = 0.5; %0.5 m/s
 wheelbase = 0.09; %0.09 m
 

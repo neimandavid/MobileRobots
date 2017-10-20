@@ -37,6 +37,6 @@ function ranges = getRanges()
     
     tempRanges = robot.laser.LatestMessage.Ranges;
     ranges = zeros(360);
-    ranges(1:355) = tempRanges(6:360);
-    ranges(356:360) = tempRanges(1:5);
+    ranges(1:5) = tempRanges(356:360);
+    ranges(6:360) = tempRanges(1:355);
 end
