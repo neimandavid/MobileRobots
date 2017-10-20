@@ -24,19 +24,26 @@ start = [0; 0; 0]; %Start position: [x, y, theta]
 pose = start; %pose is where we actually are
 goalpose = start; %goalpose is where we want to be
 
+move(0, 0);
 if ~isSim
     robot.startLaser;
     forksUp();
-    pause(5);
+    pause(3);
     forksDown();
 end
 
 %Comment if we don't want the intermediate step
-goToSail(0.127, 0, 0.2, pose, pose);
+goToSail(0.127, -0.23, 0.2, pose, pose);
 data = []; %Don't plot old trajectories
 'First move'
-%moveRelPos(.11, 0, 0, 0.2, pose, pose);
-%goToSail(0.127, .05, 0.2, pose, pose);
+goToSail(0.127,-0.13, 0.2, pose, pose);
+pause(1);
+move(0.07, 0.07);
+pause(1);
+move(0, 0);
+pause(1);
+
+%moveRelPos(.03, 0, 0, 0.05, pose, pose);
 'Second move'
 forksUp();
 pause(2);
@@ -51,7 +58,7 @@ function [poseout, goalposeout] = goToSail(sailwidth, standoffdist, vMax, startp
     if isSim
         load('rangeData.mat');
     else
-        rangeData = getNiceRanges(-2); %Positive makes the robot go left
+        rangeData = getNiceRanges(-5); %Positive makes the robot go left
     end
 
     close all
@@ -63,10 +70,15 @@ function [poseout, goalposeout] = goToSail(sailwidth, standoffdist, vMax, startp
         goalposeout = initialgoalpose;
     else
         [poseout, goalposeout] = moveRelPos(sailpos(1)+standoffdist*cos(sailpos(3)), sailpos(2)+standoffdist*sin(sailpos(3)), sailpos(3), vMax, startpose, initialgoalpose);
+        hold on
+        plot(sailpos(1), sailpos(2), 'x', 'MarkerSize', 100)
+        hold off
     end    
 end
 
 function cdata = findSail(ranges, sailwidth)
+    debugSail = false;
+
     figure(1)
     numpts = size(ranges, 2);
     
@@ -93,11 +105,15 @@ function cdata = findSail(ranges, sailwidth)
            oldpt = newpt;
        end
        if y < 5
-           %'Not enough points'
+           if debugSail
+                'Not enough points'
+           end
            continue %Skip stuff with less than 5 points
        end
        if norm(startpt(3:4)-oldpt(3:4)) < 0.5*sailwidth
-           %'Sail too small'
+           if debugSail
+                'Sail too small'
+           end
            continue %Skip stuff whose width is off by more than 50%
        end
        
@@ -121,10 +137,11 @@ function cdata = findSail(ranges, sailwidth)
        %only on the endpoints
        
        thm = atan2(2*Ixy,Iyy-Ixx)/2.0; %Not sure what off-diagonal elts do, but I'm scared of sign errors...
-       thm-thd
        th = thd;
        if lambda(1) > 1.3
-           %'Not a line'
+           if debugSail
+                'Not a line'
+           end
            continue %Skip stuff with really high variance
        end
        
@@ -136,8 +153,11 @@ function cdata = findSail(ranges, sailwidth)
        quiver(xbar, ybar, cos(th), sin(th));
        hold off
        
-       if norm([xbar, ybar]) < d
-           d = norm([xbar, ybar]);
+       thdirect = atan2(ybar, xbar);
+       newd = norm([xbar, ybar]) + 0.07*mod(thdirect-3*pi/4, 2*pi);
+       
+       if newd < d
+           d = newd;
            xc = xbar;
            yc = ybar;
            thc = th;
@@ -315,6 +335,10 @@ function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, c
            %Helper variables for linear interpolation
            dprev = max(curve.distArray(curve.distArray <= dist));
            dnext = min(curve.distArray(curve.distArray > dist));
+           if isempty(dprev) || isempty(dnext)
+               'Think we got a weird case...'
+               continue
+           end
            iprev = find(curve.distArray == dprev, 1);
            inext = find(curve.distArray == dnext, 1);
            prop = (dist - dprev)/(dnext-dprev);
