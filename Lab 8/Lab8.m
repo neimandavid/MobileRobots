@@ -33,7 +33,7 @@ if ~isSim
 end
 
 %Comment if we don't want the intermediate step
-goToSail(0.127, -0.23, 0.2, pose, pose);
+%goToSail(0.127, -0.23, 0.2, pose, pose);
 data = []; %Don't plot old trajectories
 'First move'
 goToSail(0.127,-0.13, 0.2, pose, pose);
