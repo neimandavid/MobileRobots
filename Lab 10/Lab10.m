@@ -1,5 +1,7 @@
+close all
+
 global robot, global isSim, global vMax, global tMove, global tStart, global wheelbase, global simle, global simre, global simlv, global simrv, global simencnoise;
-isSim = true;
+isSim = false;
 if(~isSim)
     robot = raspbot();
 end
@@ -24,7 +26,7 @@ global data;
 data = [];
 
 start = [0; 0; 0]; %Start position: [x, y, theta]
-start = [12*0.0254, 12*0.0254, -pi/2];
+start = [15*0.0254, 9*0.0254, pi/2];
 pose = start; %pose is where we actually are
 goalpose = start; %goalpose is where we want to be
 
@@ -35,42 +37,68 @@ if ~isSim
     forksDown();
 end
 
-ranges = getNiceRanges(-5)
-plot(ranges(3, :), ranges(4, :), 'o');
+d = robotKeypressDriver(figure);
+ranges = [];
 
-numsamples = 10;
-dataa = zeros(1, 2*numsamples+1);
-for x = 0:2*numsamples
-    dataa(x+1) = computeError(pose + [1-x/numsamples, 0, 0], ranges);
+while true
+   d.drive(robot, 2)
+   [pose, ranges] = getLidarPose(pose);
+   plot(pose(1), pose(2), 'og', 'MarkerSize', 20);
+   hold on
+   quiver(pose(1), pose(2), 0.05*cos(pose(3)), 0.05*sin(pose(3)), 'g', 'LineWidth', 2);
+   hold off
+   for i = 1:size(walls, 1)
+       hold on;
+      plot([walls(i, 1), walls(i, 3)], [walls(i, 2), walls(i, 4)], ...
+          '-b', 'LineWidth', 5);
+      hold off
+   end
+   H = [cos(-pose(3)), sin(-pose(3)), pose(1); -sin(-pose(3)), cos(-pose(3)), pose(2); 0, 0, 1];
+   toplot = [ranges(3:4, :); ones(1, size(ranges, 2))];
+   toplot = H*toplot;
+   hold on
+   plot(toplot(1, :), toplot(2, :), 'xr');
+   hold off
+   axis([-1.1, 1.4, -1.1, 1.4]);
+   pause(0.5);
 end
-figure
-plot(1 - (0:(2*numsamples))/numsamples, dataa)
-title('X errors')
 
-dataa = zeros(1, 2*numsamples+1);
-for x = 0:2*numsamples
-    dataa(x+1) = computeError(pose + [0, 1-x/numsamples, 0], ranges);
-end
-figure
-plot(1 - (0:(2*numsamples))/numsamples, dataa)
-title('Y errors')
-
-dataa = zeros(1, 2*numsamples+1);
-for x = 0:2*numsamples
-    dataa(x+1) = computeError(pose + [0, 0, 1-x/numsamples], ranges);
-end
-figure
-plot(1 - (0:(2*numsamples))/numsamples, dataa)
-title('Th errors')
-
-getLidarPose(pose)
+% ranges = getNiceRanges(-5)
+% plot(ranges(3, :), ranges(4, :), 'o');
+% 
+% numsamples = 10;
+% dataa = zeros(1, 2*numsamples+1);
+% for x = 0:2*numsamples
+%     dataa(x+1) = computeError(pose + [1-x/numsamples, 0, 0], ranges);
+% end
+% figure
+% plot(1 - (0:(2*numsamples))/numsamples, dataa)
+% title('X errors')
+% 
+% dataa = zeros(1, 2*numsamples+1);
+% for x = 0:2*numsamples
+%     dataa(x+1) = computeError(pose + [0, 1-x/numsamples, 0], ranges);
+% end
+% figure
+% plot(1 - (0:(2*numsamples))/numsamples, dataa)
+% title('Y errors')
+% 
+% dataa = zeros(1, 2*numsamples+1);
+% for x = 0:2*numsamples
+%     dataa(x+1) = computeError(pose + [0, 0, 1-x/numsamples], ranges);
+% end
+% figure
+% plot(1 - (0:(2*numsamples))/numsamples, dataa)
+% title('Th errors')
+% 
+% getLidarPose(pose)
 
 if ~isSim
     robot.stopLaser;
 end
 
-function pose = getLidarPose(pose)
-    tic
+function [pose, rangesout] = getLidarPose(pose)
+    t1 = tic;
     eps = 10^-9;
     dpose = 10^-2;
     cutoff = dpose;
@@ -78,22 +106,24 @@ function pose = getLidarPose(pose)
     oldpx = 0;
     oldpy = 0;
     oldpth = 0;
+    rangesout = [];
     while true
         px = (computeError(pose + [eps, 0, 0], ranges) - computeError(pose, ranges))/eps;
         py = (computeError(pose + [0, eps, 0], ranges) - computeError(pose, ranges))/eps;
         pth = 10*(computeError(pose + [0, 0, eps], ranges) - computeError(pose, ranges))/eps;
-        grad = [px, py, pth]
+        [~, rangesout] = computeError(pose, ranges);
+        grad = [px, py, pth];
         
         %Don't bother checking for small error; small gradient is enough
         %Don't scale the cutoff value with the step size or we're slow
-        if norm(grad) < cutoff || computeError(pose, ranges) < cutoff
+        if norm(grad) < cutoff || computeError(pose, ranges) < cutoff || toc(t1) > 1
             break
         end
         
         %Update pose and repeat
-        pose = pose - 10*dpose*grad
+        pose = pose - 10*dpose*grad;
         
-        if px*oldpx < -cutoff^2 || py*oldpy < -cutoff^2 || pth*oldpth < -cutoff^2
+        if (px*oldpx < -cutoff^2 || py*oldpy < -cutoff^2 || pth*oldpth < -cutoff^2)&& dpose > cutoff/10
             dpose = dpose/1.1;
         end
         
@@ -101,11 +131,10 @@ function pose = getLidarPose(pose)
         oldpy = py;
         oldpth = pth;
     end
-    dpose
-    toc
+    pose
 end
 
-function err = computeError(pose, ranges)
+function [err, newRanges] = computeError(pose, ranges)
     global walls;
     if size(walls, 1) == 0
         'No walls; returning 0 for no good reason'
@@ -146,7 +175,7 @@ function err = computeError(pose, ranges)
     end
     
     %Parameters for throwing out garbage data
-    walltol = 0.1; %Max allowed distance to wall
+    walltol = 0.3; %Max allowed distance to wall
     cornertol = 0.1; %Min allowed distance difference (small indicates near corner)
    
     %Filter garbage data
@@ -156,7 +185,7 @@ function err = computeError(pose, ranges)
         cornertol = cornertol/1.1;
         tempNewRanges = newRanges(:, (newRanges(5, :) < walltol & newRanges(6, :) > cornertol) );
     end
-    newRanges = tempNewRanges;
+    newRanges = tempNewRanges(:, 1:1:size(tempNewRanges, 2));
     err = sum(newRanges(5, :))/size(newRanges, 2); %Average smallest error
 end
     
