@@ -1,5 +1,5 @@
 global robot, global isSim, global vMax, global tMove, global tStart, global wheelbase, global simle, global simre, global simlv, global simrv, global simencnoise;
-isSim = false;
+isSim = true;
 if(~isSim)
     robot = raspbot();
 end
@@ -86,12 +86,12 @@ function pose = getLidarPose(pose)
         
         %Don't bother checking for small error; small gradient is enough
         %Don't scale the cutoff value with the step size or we're slow
-        if norm(grad) < cutoff %|| computeError(pose, ranges) < eps
+        if norm(grad) < cutoff || computeError(pose, ranges) < cutoff
             break
         end
         
         %Update pose and repeat
-        pose = pose - dpose*grad
+        pose = pose - 10*dpose*grad
         
         if px*oldpx < -cutoff^2 || py*oldpy < -cutoff^2 || pth*oldpth < -cutoff^2
             dpose = dpose/1.1;
@@ -147,7 +147,7 @@ function err = computeError(pose, ranges)
     
     %Parameters for throwing out garbage data
     walltol = 0.1; %Max allowed distance to wall
-    cornertol = 0.02; %Min allowed distance difference (small indicates near corner)
+    cornertol = 0.1; %Min allowed distance difference (small indicates near corner)
    
     %Filter garbage data
     tempNewRanges = newRanges(:, (newRanges(5, :) < walltol & newRanges(6, :) > cornertol) );
