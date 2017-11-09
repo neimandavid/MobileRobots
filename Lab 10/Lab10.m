@@ -17,7 +17,7 @@ tMove = tic; %Start timer for simulated move function
 
 global minrange, global maxrange;
 minrange = 0.06;
-maxrange = 1;
+maxrange = 2;
 
 global walls; %Matrix, each row x1, y1, x2, y2 of one wall
 walls = [0, 0, 48*0.0254, 0; 0, 0, 0, 48*0.0254];
@@ -176,7 +176,7 @@ function [err, newRanges] = computeError(pose, ranges)
     
     %Parameters for throwing out garbage data
     walltol = 0.3; %Max allowed distance to wall
-    cornertol = 0.1; %Min allowed distance difference (small indicates near corner)
+    cornertol = 0.02; %Min allowed distance difference (small indicates near corner)
    
     %Filter garbage data
     tempNewRanges = newRanges(:, (newRanges(5, :) < walltol & newRanges(6, :) > cornertol) );
