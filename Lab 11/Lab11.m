@@ -31,6 +31,9 @@ start = [0.6096; 0.6096; pi/2];
 pose = start; %pose is where we actually are
 goalpose = start; %goalpose is where we want to be
 
+global epose;
+epose = pose;
+
 if ~isSim
     robot.startLaser;
     forksUp();
@@ -40,16 +43,26 @@ end
 robot.laser.NewMessageFcn = @laserListener;
 
 clc;
-% [pose, goalpose] = moveRelPos(0.3048, -0.3048, -pi/2, 0.2, pose, goalpose);
 
-
-[pose, goalpose] = moveRelPos(0.3048, 0.3048, 0, 0.2, pose, goalpose);
+x = 0;
+while x < 3
+[pose, goalpose] = moveAbsPos(0.3048, 0.9146, pi/2, 0.2, pose, goalpose);
 'Pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing'
 pause(5);
-[pose, goalpose] = moveRelPos(-0.6096, -0.6096, -pi/2, 0.2, pose, goalpose);
+[pose, goalpose] = moveAbsPos(0.9146, 0.3048, 0, 0.2, pose, goalpose);
 'Pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing'
 pause(5);
-[pose, goalpose] = moveRelPos(-0.3048, 0.3048, pi/2, 0.2, pose, goalpose);
+[pose, goalpose] = moveAbsPos(0.6096, 0.6096, pi/2, 0.2, pose, goalpose);
+x = x + 1;
+getLidarPose([x; y; th], 1);
+end
+% [pose, goalpose] = moveRelPos(0.3048, 0.3048, 0, 0.05, pose, goalpose);
+% 'Pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing'
+% pause(5);
+% [pose, goalpose] = moveRelPos(-0.6096, -0.6096, -pi/2, 0.05, pose, goalpose);
+% 'Pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing'
+% pause(5);
+% [pose, goalpose] = moveRelPos(-0.3048, 0.3048, pi/2, 0.05, pose, goalpose);
 
 move(0, 0);
 'Done'
@@ -87,8 +100,16 @@ if ~isSim
     robot.stopLaser;
 end
 
+function [outpose, goalpose] = moveAbsPos(xtarget, ytarget, thtarget, vMax, currentPose, curgoalpose)
+    currentPose = getLidarPose(currentPose, 1);
+    t = currentPose(3);
+    R = [cos(-t), -sin(-t); sin(-t), cos(-t)];
+    temp = R*[xtarget-currentPose(1); ytarget-currentPose(2)];
+    [outpose, goalpose] = moveRelPos(temp(1), temp(2), thtarget-currentPose(3), vMax, currentPose, currentPose);
+end
+
 function fusedpose = fusePoses(currentPose, lidarPose)
-    gain = 0.01;
+    gain = 0;%0.01;
     fusedpose = (1-gain)*currentPose + gain*lidarPose;
     %Overwrite angle because angle math
     thetadiff = lidarPose(3) - currentPose(3);
@@ -113,6 +134,8 @@ function laserListener(handle, event)
 end
 
 function [pose, timestamp, rangesout] = getLidarPose(pose, timeout, oldtime)
+    global epose;
+    startpose = epose;
     if nargin < 2
         timeout = 0.1;
     end
@@ -168,6 +191,7 @@ function [pose, timestamp, rangesout] = getLidarPose(pose, timeout, oldtime)
     while pose(3) < -pi
         pose(3) = pose(3) + 2*pi;
     end
+    endpose = epose;
 end
 
 function [err, newRanges] = computeError(pose, ranges)
@@ -727,14 +751,14 @@ function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, c
     xp = curgoalpose(1); yp = curgoalpose(2); thp = curgoalpose(3); %Predicted state
     
     %3D PID gains
-    kcoeff = 2; %Global scaling factor for PID. 0 for no PID
-    kx = 1;
-    ky = 10;
-    kt = 1;
+    kcoeff = 1; %Global scaling factor for PID. 0 for no PID
+    kx = 3;
+    ky = 30;
+    kt = 3;
     kdx = 0.1;
     kix = 0.001;
-    kdy = 1;
-    kiy = .1;
+    kdy = 3;
+    kiy = .3;
     kdt = 0.1;
     kit = 0.01;
 
@@ -767,6 +791,9 @@ function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, c
     pause(0.1); %Allow another set of encoder readings to come in for ease of math
 
     [lidarpose, oldlidartime] = getLidarPose(currentPose, 1);
+    
+    %Flag for doing a lidar scan before PID servo at end
+    flag = false;
     
     while true  
        encpose = [x; y; th];
@@ -808,7 +835,8 @@ function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, c
        data = [data, temp];
        
        %Now update lidar pose and fuse if possible
-       global lpose; global ltimestamp;
+       global lpose; global ltimestamp; global epose;
+       epose = temp(1:3);
        %[lidarpose, lidartime] = getLidarPose(temp(1:3), 0.1);
        lidartime = ltimestamp;
        if lidartime > oldlidartime || true
@@ -824,7 +852,7 @@ function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, c
        
        dmax = max(curve.distArray);
        if dist >= dmax
-           ky = 0; kdy = 0; kiy = 0;
+           %ky = 0; kdy = 0; kiy = 0;
            %Set target position to end of trajectory, increment end timer,
            %and turn off feedforward commands
            xp = curve.poseArray(1, end);
@@ -905,10 +933,16 @@ function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, c
        %Pause so Matlab doesn't hate me...
        pause(0.05);
        %Check for exit
-       if tend >= 3
+       if tend >= 1
            finalpose = [x; y; th]
            error = [xdiff; ydiff; thdiff]
            move(0, 0); %Stop
+           if flag == false
+              tpose = getLidarPose([x; y; th], 1);
+              x = tpose(1); y = tpose(2); th = tpose(3);
+           end
+           flag = true;
+           tend = -2;
            break
        end
     end
