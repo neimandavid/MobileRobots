@@ -46,10 +46,10 @@ clc;
 
 [pose, goalpose] = moveAbsPos(0.3048, 0.9146, pi/2, 0.2, pose, goalpose);
 'Pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing'
-pause(5);
+pause(20);
 [pose, goalpose] = moveAbsPos(0.9146, 0.3048, 0, 0.2, pose, goalpose);
 'Pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing'
-pause(5);
+pause(20);
 [pose, goalpose] = moveAbsPos(0.6096, 0.6096, pi/2, 0.2, pose, goalpose);
 getLidarPose(pose, 1);
 % [pose, goalpose] = moveRelPos(0.3048, 0.3048, 0, 0.05, pose, goalpose);
@@ -727,7 +727,7 @@ function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, c
     global pdata;
     global encpose; global timeout;
     encpose = currentPose;
-    timeout = 0.5;
+    timeout = 0.1;
     %currentPose and curgoalpose are in global coordinates (else currentPose = 0 all the time...)
     
     %Default argument values for convenience
@@ -750,13 +750,13 @@ function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, c
     kcoeff = 1; %Global scaling factor for PID. 0 for no PID
     kx = 1;
     ky = 10;
-    kt = 1;
+    kt = .1;
     kdx = 0.1;
     kix = 0.001;
     kdy = 1;
     kiy = .1;
-    kdt = 0.1;
-    kit = 0.01;
+    kdt = 0.01;
+    kit = 0.001;
 
     badenccount = 0;
     consecbadenccount = 0;
@@ -949,11 +949,12 @@ function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, c
     %close(2);
     figure(1);
     hold on
-    plot(data(1,:), data(2,:));
-    plot(pdata(1, :), pdata(2, :));
-    axis([-2, 2, -2, 2]);
+    plot(data(1,:), data(2,:), 'b');
+    plot(pdata(1, :), pdata(2, :), 'r');
+    axis([0, 2, 0, 2]);
     hold off
     %quiver(x, y, Vmeas*cos(th), Vmeas*sin(th));
+    legend('Predicted', 'Actual');
     title('Robot Trajectory');
     xlabel('x (m)');
     ylabel('y (m)');
