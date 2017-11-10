@@ -44,8 +44,6 @@ robot.laser.NewMessageFcn = @laserListener;
 
 clc;
 
-x = 0;
-while x < 3
 [pose, goalpose] = moveAbsPos(0.3048, 0.9146, pi/2, 0.2, pose, goalpose);
 'Pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing'
 pause(5);
@@ -53,9 +51,7 @@ pause(5);
 'Pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing'
 pause(5);
 [pose, goalpose] = moveAbsPos(0.6096, 0.6096, pi/2, 0.2, pose, goalpose);
-x = x + 1;
-getLidarPose([x; y; th], 1);
-end
+getLidarPose(pose, 1);
 % [pose, goalpose] = moveRelPos(0.3048, 0.3048, 0, 0.05, pose, goalpose);
 % 'Pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing'
 % pause(5);
@@ -752,13 +748,13 @@ function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, c
     
     %3D PID gains
     kcoeff = 1; %Global scaling factor for PID. 0 for no PID
-    kx = 3;
-    ky = 30;
-    kt = 3;
+    kx = 1;
+    ky = 10;
+    kt = 1;
     kdx = 0.1;
     kix = 0.001;
-    kdy = 3;
-    kiy = .3;
+    kdy = 1;
+    kiy = .1;
     kdt = 0.1;
     kit = 0.01;
 
@@ -934,16 +930,18 @@ function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, c
        pause(0.05);
        %Check for exit
        if tend >= 1
+           'test'
            finalpose = [x; y; th]
            error = [xdiff; ydiff; thdiff]
            move(0, 0); %Stop
            if flag == false
-              tpose = getLidarPose([x; y; th], 1);
+              tpose = getLidarPose([x; y; th], 1)
               x = tpose(1); y = tpose(2); th = tpose(3);
+              flag = true;
+              tend = -2;
+           else
+               break
            end
-           flag = true;
-           tend = -2;
-           break
        end
     end
     
