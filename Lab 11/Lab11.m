@@ -45,11 +45,11 @@ robot.laser.NewMessageFcn = @laserListener;
 clc;
 
 [pose, goalpose] = moveAbsPos(0.3048, 0.9146, pi/2, 0.2, pose, goalpose);
-'Pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing'
-pause(20);
+%'Pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing'
+%pause(20);
 [pose, goalpose] = moveAbsPos(0.9146, 0.3048, 0, 0.2, pose, goalpose);
-'Pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing'
-pause(20);
+%'Pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing pausing'
+%pause(20);
 [pose, goalpose] = moveAbsPos(0.6096, 0.6096, pi/2, 0.2, pose, goalpose);
 getLidarPose(pose, 1);
 % [pose, goalpose] = moveRelPos(0.3048, 0.3048, 0, 0.05, pose, goalpose);

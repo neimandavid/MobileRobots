@@ -7,16 +7,17 @@ simlv = 0; %Left velocity
 simrv = 0; %Right velocity
 simle = 1234; %Encoder values (random to start)
 simre = 5678;
-origEnc = getEncoders();
 simpos = [0; 0; 0]; %x y theta relative to start
 vmax = 0.5;
 
 %2.54 cm = 1 in (exact conversion)
-
-%if ~isSim
+'test'
+if ~isSim
     robot = raspbot();
     'robot initialized'
-%end
+end
+origEnc = getEncoders();
+
 tStart = tic; %Timer that never stops
 tMove = tic; %Timer that's reset each call to the move function
 
