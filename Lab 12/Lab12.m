@@ -39,56 +39,29 @@ if ~isSim
 end
 
 for x = 1:3
-    
     [pose, goalpose] = backThenTurn(0.1, pi, 0.2, pose, goalpose);
-    'After turn'
-    pose
-
     forksUp();
     pause(5);
     forksDown();
-
     pose = getLidarPose(pose);
     goalpose = pose;
-    'Lidar says:'
-    pose
-    
     [pose, goalpose] = goToSail(0.127, -0.23, 0.4, pose, goalpose, [90, 270]);
-    'After first move'
-    pose
     [pose, goalpose] = goToSail(0.127,-0.13, 0.2, pose, goalpose);
-    [pose, goalpose] = moveRelPos(.07, 0, 0, 0.05, pose, pose);
-    'After second move'
-    pose
+    [pose, goalpose] = moveRelPos(.07, 0, 0, 0.05, pose, pose, 0); %No PID
     forksUp();
-    
     pause(3);
-    
-    'After lidar'
-    pose = getLidarPose(pose)
+    pose = getLidarPose(pose);
     goalpose = pose;
-    
     [pose, goalpose] = backThenTurn(0.07, pi, 0.05, pose, goalpose);
-    
-    'After turn'
-    pose
-    
     %New code for drops
-    %pause(3);
-    %pose = getLidarPose(pose);
-    %goalpose = pose;
+    %Compute drop spot (off by distance from sensor to forks
     dropspot = drops(x, 1:3)';
-    dropdist = 0.06;
+    dropdist = 0.06; %Sensor to fork distance
     dropspot(1) = dropspot(1) - dropdist*cos(dropspot(3));
     dropspot(2) = dropspot(2) - dropdist*sin(dropspot(3));
-    dropspot
-    
     [pose, goalpose] = moveAbsPos(dropspot, 0.2, pose, goalpose);
     forksDown();
-    'After drop'
-    pose
-    
-    pause(2);
+    pause(0.5);
 end
 
 robot.stopLaser();
@@ -339,17 +312,17 @@ end
 
 %LIDAR code (partly from lab 2)
 function [poseout, goalposeout] = goToSail(sailwidth, standoffdist, vMax, startpose, initialgoalpose, badrange)
-    if nargin <= 6
+    if nargin < 6
         badrange = [180, 180]; %Allow all sails
     end
     
     close all;
     
-    rangeData = getNiceRanges(-5); %Positive makes the robot go left
+    rangeData = getNiceRanges(-6); %Positive makes the robot go left
 
     close all
     plot(rangeData(3, :), rangeData(4, :), 'o') %x is forward, y is left
-    sailpos = findSail2(rangeData, sailwidth);
+    sailpos = findSail2(rangeData, sailwidth, badrange);
     if sailpos == [0; 0; 0]
         'No sail found'
         poseout = startpose;
@@ -362,7 +335,10 @@ function [poseout, goalposeout] = goToSail(sailwidth, standoffdist, vMax, startp
     end    
 end
 
-function cdata = findSail2(ranges, sailwidth)
+function cdata = findSail2(ranges, sailwidth, badrange)
+    if nargin < 3
+        badrange = [180, 180];
+    end
     debug = false;
 
     numpts = size(ranges, 2);
@@ -710,7 +686,10 @@ function ranges = rawRanges(fudge)
 end
 
 %Lab 7 code
-function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, currentPose, curgoalpose)
+function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, currentPose, curgoalpose, kcoeff)
+    if nargin < 7
+        kcoeff = 1;
+    end
     global data;
     global pdata;
     %currentPose and curgoalpose are in global coordinates (else currentPose = 0 all the time...)
@@ -732,7 +711,8 @@ function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, c
     xp = curgoalpose(1); yp = curgoalpose(2); thp = curgoalpose(3); %Predicted state
     
     %3D PID gains
-    kcoeff = 1; %Global scaling factor for PID. 0 for no PID
+    %kcoeff = 1; %Global scaling factor for PID. 0 for no PID. Now an
+    %argument
     kx = 3;
     ky = 30;
     kt = 3;
