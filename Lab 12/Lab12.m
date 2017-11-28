@@ -24,7 +24,7 @@ walls = [0, 0, 48*0.0254, 0; 0, 0, 0, 48*0.0254; 48*0.0254, 0, 48*0.0254, 48*0.0
 
 ftinm = 12*0.0254; %1 foot in meters
 pallets = [ftinm, 3.5*ftinm, pi/2, true; 2*ftinm, 3.5*ftinm, pi/2, true; 3*ftinm, 3.5*ftinm, pi/2, true];
-drops = [1.75*ftinm, 0.5*ftinm, -pi/2, true; 2.25*ftinm, 0.5*ftinm, -pi/2, true; 2.75*ftinm, 0.5*ftinm, -pi/2, true];
+drops = [1.5*ftinm, 0.5*ftinm, -pi/2, true; 2.25*ftinm, 0.5*ftinm, -pi/2, true; 3*ftinm, 0.5*ftinm, -pi/2, true];
 
 global data;
 data = [];
@@ -45,8 +45,9 @@ for x = 1:3
     forksDown();
     pose = getLidarPose(pose);
     goalpose = pose;
-    [pose, goalpose] = goToSail(0.127, -0.23, 0.4, pose, goalpose, [90, 270]);
+    [pose, goalpose] = goToSail(0.127, -0.23, 0.2, pose, goalpose, [90, 270]);
     [pose, goalpose] = goToSail(0.127,-0.13, 0.2, pose, goalpose);
+    
     [pose, goalpose] = moveRelPos(.07, 0, 0, 0.05, pose, pose, 0); %No PID
     forksUp();
     pause(3);
@@ -318,7 +319,7 @@ function [poseout, goalposeout] = goToSail(sailwidth, standoffdist, vMax, startp
     
     close all;
     
-    rangeData = getNiceRanges(-6); %Positive makes the robot go left
+    rangeData = getNiceRanges(-5); %Positive makes the robot go left
 
     close all
     plot(rangeData(3, :), rangeData(4, :), 'o') %x is forward, y is left
@@ -878,16 +879,16 @@ function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, c
     
     %Plot final trajectory on sail graph
     %close(2);
-    figure(1);
-    hold on
-    plot(data(1,:), data(2,:));
-    plot(pdata(1, :), pdata(2, :));
-    axis([-2, 2, -2, 2]);
-    hold off
-    %quiver(x, y, Vmeas*cos(th), Vmeas*sin(th));
-    title('Robot Trajectory');
-    xlabel('x (m)');
-    ylabel('y (m)');
+%     figure(1);
+%     hold on
+%     plot(data(1,:), data(2,:));
+%     plot(pdata(1, :), pdata(2, :));
+%     axis([-2, 2, -2, 2]);
+%     hold off
+%     %quiver(x, y, Vmeas*cos(th), Vmeas*sin(th));
+%     title('Robot Trajectory');
+%     xlabel('x (m)');
+%     ylabel('y (m)');
 
     goalposeout = curve.poseArray(:, end);
     poseout = [x; y; th];
