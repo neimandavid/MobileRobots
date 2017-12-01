@@ -41,7 +41,7 @@ if ~isSim
     forksDown();
 end
 
-topick = [1, 2, 3, 4, 5, 6, 10];
+topick = [1, 2, 3, 4, 10, 9, 5];
 
 for x = 1:7
     [pose, goalpose] = backThenTurn(0.1, pi, 0.2, pose, goalpose);
@@ -53,16 +53,16 @@ for x = 1:7
     sd1 = 0.3; %First standoff distance
     [pose, goalpose] = moveAbsPos([pallets(topick(x), 1)-sd1*cos(pallets(topick(x), 3)), pallets(topick(x), 2)-sd1*sin(pallets(topick(x), 3)),pallets(topick(x), 3)], 0.2, pose, goalpose, 1);
     %[pose, goalpose] = goToSail(0.127, -0.3, 0.2, pose, goalpose, [90, 270]);
-    pose = getLidarPose(pose)
-    goalpose = pose;
+    %pose = getLidarPose(pose)
+    %goalpose = pose;
     [pose, goalpose] = goToSail(0.127,-0.13, 0.2, pose, goalpose);
-    pose = getLidarPose(pose)
-    goalpose = pose;
-    [pose, goalpose] = moveRelPos(.05, 0, 0, 0.05, pose, pose, 0); %No PID
+    %pose = getLidarPose(pose)
+    %goalpose = pose;
+    [pose, goalpose] = moveRelPos(.07, 0, 0, 0.05, pose, pose, 0); %No PID
     forksUp();
-    pause(3);
-    pose = getLidarPose(pose)
-    goalpose = pose;
+    %pause(3);
+    %pose = getLidarPose(pose)
+    %goalpose = pose;
     [pose, goalpose] = backThenTurn(0.07, pi, 0.05, pose, goalpose);
     pose = getLidarPose(pose)
     goalpose = pose;
@@ -70,23 +70,30 @@ for x = 1:7
     %Compute drop spot (off by distance from sensor to forks
     dropindex = getClosestDropIndex(pose)
     dropspot = drops(dropindex, 1:3)';
-    dropdist = 0.16; %Sensor to fork distance
+    dropdist = 0.06; %Sensor to fork distance
     dropspot(1) = dropspot(1) - dropdist*cos(dropspot(3));
     dropspot(2) = dropspot(2) - dropdist*sin(dropspot(3));
-    pose = getLidarPose(pose)
-    goalpose = pose;
-    [pose, goalpose] = moveAbsPos(dropspot, 0.1, pose, goalpose, 1);
+    %pose = getLidarPose(pose)
+    %goalpose = pose;
+    %forksDown();
+    [pose, goalpose] = moveAbsPos(dropspot, 0.2, pose, goalpose, 0);
     dropspot = drops(dropindex, 1:3)';
     dropdist = 0.06; %Sensor to fork distance
     dropspot(1) = dropspot(1) - dropdist*cos(dropspot(3));
     dropspot(2) = dropspot(2) - dropdist*sin(dropspot(3));
-    pose = getLidarPose(pose)
-    goalpose = pose;
-    [pose, goalpose] = moveAbsPos(dropspot, 0.2, pose, goalpose, 1);
+    %forksUp();
+    
+    %Dropoff correction code
+%     pose = getLidarPose(pose)
+%     goalpose = pose;
+%     if(norm(pose - dropspot) > .075)
+%         [pose, goalpose] = moveAbsPos(dropspot, 0.1, pose, goalpose, 1);
+%     end
+    
     forksDown();
     pause(0.5);
-    pose = getLidarPose(pose)
-    goalpose = pose;
+    %pose = getLidarPose(pose)
+    %goalpose = pose;
 end
 
 
@@ -131,7 +138,7 @@ function [pose, rangesout] = getLidarPose(pose)
     while true
         px = (computeError(pose + [eps; 0; 0], ranges) - computeError(pose, ranges))/eps;
         py = (computeError(pose + [0; eps; 0], ranges) - computeError(pose, ranges))/eps;
-        pth = 10*(computeError(pose + [0; 0; eps], ranges) - computeError(pose, ranges))/eps;
+        pth = 5*(computeError(pose + [0; 0; eps], ranges) - computeError(pose, ranges))/eps;
         [~, rangesout] = computeError(pose, ranges);
         grad = [px; py; pth];
         
@@ -158,6 +165,7 @@ function [pose, rangesout] = getLidarPose(pose)
     while pose(3) > pi
         pose(3) = pose(3) - 2*pi;
     end
+    pose = real(pose);
 end
 
 function [err, newRanges] = computeError(pose, ranges)
