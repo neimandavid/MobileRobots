@@ -41,10 +41,11 @@ if ~isSim
     forksDown();
 end
 
-topick = [1, 2, 3, 4, 10, 9, 5];
+topick = [1, 2, 3, 4, 10, 9, 8];
 
 for x = 1:7
-    [pose, goalpose] = backThenTurn(0.1, pi, 0.2, pose, goalpose);
+    [pose, goalpose] = backThenTurn(0.1, 8*pi/9, 0.2, pose, goalpose);
+
     %forksUp();
     %pause(5);
     %forksDown();
@@ -63,7 +64,11 @@ for x = 1:7
     %pause(3);
     %pose = getLidarPose(pose)
     %goalpose = pose;
-    [pose, goalpose] = backThenTurn(0.07, pi, 0.05, pose, goalpose);
+    if topick(x) == 10
+        [pose, goalpose] = backThenTurn(0.07, -8*pi/9, 0.05, pose, goalpose);
+    else
+        [pose, goalpose] = backThenTurn(0.07, pi, 0.05, pose, goalpose);
+    end
     pose = getLidarPose(pose)
     goalpose = pose;
     %New code for drops
@@ -188,7 +193,7 @@ function [err, newRanges] = computeError(pose, ranges)
     H = [cos(-pose(3)), sin(-pose(3)), pose(1); -sin(-pose(3)), cos(-pose(3)), pose(2); 0, 0, 1];
     for x = 1:size(walls, 1)
         tempmat = [walls(x, 1), walls(x, 3); walls(x, 2), walls(x, 4); 1, 1];
-        M = H^(-1)*tempmat;
+        M = inv(H)*tempmat;
         relWalls(x, :) = [M(1, 1), M(2, 1), M(1, 2), M(2, 2)];
     end
     
