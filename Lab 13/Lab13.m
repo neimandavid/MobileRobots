@@ -41,10 +41,14 @@ if ~isSim
     forksDown();
 end
 
-topick = [1, 2, 3, 4, 10, 9, 8];
+topick = [1, 2, 3, 4, 10, 9, 8];%[1, 2, 3, 4, 10, 9, 8];
 
 for x = 1:7
-    [pose, goalpose] = backThenTurn(0.1, 8*pi/9, 0.2, pose, goalpose);
+    %if topick(x) == 1
+        [pose, goalpose] = backThenTurn(0.1, 8*pi/9, 0.2, pose, goalpose);
+    %else
+    %    [pose, goalpose] = backThenTurn(0.1, pi, 0.2, pose, goalpose);
+    %end
 
     %forksUp();
     %pause(5);
@@ -52,11 +56,11 @@ for x = 1:7
     pose = getLidarPose(pose)
     goalpose = pose;
     sd1 = 0.3; %First standoff distance
-    [pose, goalpose] = moveAbsPos([pallets(topick(x), 1)-sd1*cos(pallets(topick(x), 3)), pallets(topick(x), 2)-sd1*sin(pallets(topick(x), 3)),pallets(topick(x), 3)], 0.2, pose, goalpose, 1);
+    [pose, goalpose] = moveAbsPos([pallets(topick(x), 1)-sd1*cos(pallets(topick(x), 3)), pallets(topick(x), 2)-sd1*sin(pallets(topick(x), 3)),pallets(topick(x), 3)], 0.4, pose, goalpose, 1);
     %[pose, goalpose] = goToSail(0.127, -0.3, 0.2, pose, goalpose, [90, 270]);
     %pose = getLidarPose(pose)
     %goalpose = pose;
-    [pose, goalpose] = goToSail(0.127,-0.13, 0.2, pose, goalpose);
+    [pose, goalpose] = goToSail(0.127,-0.13, 0.10, pose, goalpose);
     %pose = getLidarPose(pose)
     %goalpose = pose;
     [pose, goalpose] = moveRelPos(.07, 0, 0, 0.05, pose, pose, 0); %No PID
@@ -64,7 +68,7 @@ for x = 1:7
     %pause(3);
     %pose = getLidarPose(pose)
     %goalpose = pose;
-    if topick(x) == 10
+    if topick(x) == 8 || topick(x) == 9 || topick(x) == 10
         [pose, goalpose] = backThenTurn(0.07, -8*pi/9, 0.05, pose, goalpose);
     else
         [pose, goalpose] = backThenTurn(0.07, pi, 0.05, pose, goalpose);
@@ -190,10 +194,21 @@ function [err, newRanges] = computeError(pose, ranges)
     %Convert walls into robot frame
     relWalls = zeros(size(walls));
     %H*p takes p from robot frame to world frame
-    H = [cos(-pose(3)), sin(-pose(3)), pose(1); -sin(-pose(3)), cos(-pose(3)), pose(2); 0, 0, 1];
+    
+    %Inverse rotation map
+    R = [cos(-pose(3)), sin(pose(3)); -sin(pose(3)), cos(-pose(3))];
+    d = [pose(1); pose(2)];
+    di = -R*d; %Inverse
+    
+    %Forward map; I want inverse
+    %H = [cos(-pose(3)), sin(-pose(3)), pose(1); -sin(-pose(3)), cos(-pose(3)), pose(2); 0, 0, 1];
+    
+    %Inverse map
+    H = [R(1, 1), R(1, 2), di(1); R(2, 1), R(2, 2), di(2); 0, 0, 1]; %Inv
+        
     for x = 1:size(walls, 1)
         tempmat = [walls(x, 1), walls(x, 3); walls(x, 2), walls(x, 4); 1, 1];
-        M = inv(H)*tempmat;
+        M = H*tempmat;%inv(H)*tempmat;
         relWalls(x, :) = [M(1, 1), M(2, 1), M(1, 2), M(2, 2)];
     end
     
@@ -368,9 +383,10 @@ function [poseout, goalposeout] = goToSail(sailwidth, standoffdist, vMax, startp
     if nargin < 6
         badrange = [180, 180]; %Allow all sails
     end
+    initialgoalpose = startpose; %Don't do silly stuff; use the lidar
     
     close all;
-    
+    pause(1);
     rangeData = getNiceRanges(-5); %Positive makes the robot go left
 
     close all
@@ -380,8 +396,8 @@ function [poseout, goalposeout] = goToSail(sailwidth, standoffdist, vMax, startp
         'No sail found'
         poseout = startpose;
         goalposeout = initialgoalpose;
-    elseif dist > 0.35 && standoffdist > -0.3
-        goToSail(sailwidth, -0.3, vMax, startpose, initialgoalpose, badrange)
+    elseif (dist > 0.35 && standoffdist > -0.3) || (dist < 0.15 && standoffdist < -0.15) %Retry if too far or close
+        goToSail(sailwidth, -0.3, 0.2, startpose, initialgoalpose, badrange)
         [poseout, goalposeout] = goToSail(sailwidth, standoffdist, vMax, startpose, initialgoalpose, badrange);
     else
         [poseout, goalposeout] = moveRelPos(sailpos(1)+standoffdist*cos(sailpos(3)), sailpos(2)+standoffdist*sin(sailpos(3)), sailpos(3), vMax, startpose, initialgoalpose);
@@ -594,6 +610,7 @@ end
 
 %Lab 7 code
 function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, currentPose, curgoalpose, kcoeff)
+    relposclock = tic();
     if nargin < 7
         kcoeff = 1;
     end
@@ -659,6 +676,12 @@ function [poseout, goalposeout] = moveRelPos(xtarget, ytarget, thtarget, vMax, c
     pause(0.1); %Allow another set of encoder readings to come in for ease of math
 
     while true  
+       if(toc(relposclock) > 20) %20 second timeout
+           'Timed out'
+           poseout = getLidarPose([x; y; th]);
+           goalposeout = poseout;
+           return;
+       end
        loopcount = loopcount + 1;
        newenc = getEncoders(); %Ideally would have a clever wait here
        %Compute dt and relevant speeds/distances
