@@ -23,7 +23,7 @@ global walls; %Matrix, each row x1, y1, x2, y2 of one wall
 walls = [0, 0, 96*0.0254, 0; 0, 0, 0, 144*0.0254; 96*0.0254, 0, 96*0.0254, 144*0.0254; 0, 144*0.0254, 96*0.0254, 144*0.0254];
 
 ftinm = 12*0.0254; %1 foot in meters
-pallets = [ftinm, 6*ftinm, pi/2, true; 2*ftinm, 6*ftinm, pi/2, true; 3*ftinm, 6*ftinm, pi/2, true; 4*ftinm, 6*ftinm, pi/2, true; 5*ftinm, 6*ftinm, pi/2, true; 6*ftinm, 6*ftinm, pi/2, true; 7*ftinm, 6*ftinm, pi/2, true; 7*ftinm, 4*ftinm, 0, true; 7*ftinm, 3*ftinm, 0, true; 7*ftinm, 2*ftinm, 0, true; 1*ftinm, 8*ftinm, pi, true; 1*ftinm, 9*ftinm, pi, true; 1*ftinm, 10*ftinm, pi, true];
+pallets = [ftinm, 6*ftinm, pi/2, true; 2*ftinm, 6*ftinm, pi/2, true; 3*ftinm, 6*ftinm, pi/2, true; 4*ftinm, 6*ftinm, pi/2, true; 5*ftinm, 6.5*ftinm, pi/2, true; 6*ftinm, 6.8*ftinm, pi/2, true; 7*ftinm, 6.8*ftinm, pi/2, true; 7*ftinm, 4*ftinm, 0, true; 7*ftinm, 3*ftinm, 0, true; 7*ftinm, 2*ftinm, 0, true; 1*ftinm, 8*ftinm, pi, true; 1*ftinm, 9*ftinm, pi, true; 1*ftinm, 10*ftinm, pi, true];
 global drops;
 drops = [1*ftinm, 1*ftinm, -pi/2, true; 2*ftinm, 1*ftinm, -pi/2, true; 3*ftinm, 1*ftinm, -pi/2, true; 4*ftinm, 1*ftinm, -pi/2, true; 5*ftinm, 1*ftinm, -pi/2, true; 6*ftinm, 1*ftinm, -pi/2, true; 7*ftinm, 1*ftinm, -pi/2, true];
 global data;
@@ -37,11 +37,16 @@ goalpose = start; %goalpose is where we want to be
 if ~isSim
     robot.startLaser();
     forksUp();
-    pause(5);
+    %pause(5);
     forksDown();
 end
 
-topick = [1, 2, 3, 4, 10, 9, 8];%[1, 2, 3, 4, 10, 9, 8];
+
+topick = [3, 13, 12, 11, 2, 1, 5];%[1, 2, 3, 4, 10, 9, 8];
+%1, 2, 3, 4
+%2, 3, 4, 1
+%3, 5, 4, 2
+%3, 5, 2, 1
 
 for x = 1:7
     %if topick(x) == 1
@@ -65,11 +70,12 @@ for x = 1:7
     %goalpose = pose;
     [pose, goalpose] = moveRelPos(.07, 0, 0, 0.05, pose, pose, 0); %No PID
     forksUp();
+    pause(0.5);
     %pause(3);
     %pose = getLidarPose(pose)
     %goalpose = pose;
     if topick(x) == 8 || topick(x) == 9 || topick(x) == 10
-        [pose, goalpose] = backThenTurn(0.07, -8*pi/9, 0.05, pose, goalpose);
+        [pose, goalpose] = backThenTurn(0.07, 10*pi/9, 0.05, pose, goalpose);
     else
         [pose, goalpose] = backThenTurn(0.07, pi, 0.05, pose, goalpose);
     end
